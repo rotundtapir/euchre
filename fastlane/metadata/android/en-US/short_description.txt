@@ -1,0 +1,1 @@
+Classic Euchre against bots: bowers, going alone, and an interactive tutorial.

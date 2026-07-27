@@ -1,0 +1,1 @@
+First release: offline Euchre against bots (standard + Advanced AI), four-lesson interactive tutorial, house rules (stick the dealer, defend alone, Benny, farmer's hand), Android + web.

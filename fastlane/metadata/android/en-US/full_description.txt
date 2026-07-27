@@ -1,0 +1,10 @@
+Play the classic trick-taking card game Euchre — 4-player partnerships, first to 10 points.
+
+Features:
+• Play offline against bots — a quick deterministic opponent, or the opt-in Advanced AI (Monte-Carlo search) for a real challenge.
+• Learn with the interactive tutorial: four guided lessons covering the basics (trump, bowers, following suit), bidding, going alone, and defense.
+• House rules, each toggleable: stick the dealer, defend alone, Benny (joker as best bower), and farmer's hand.
+• Clean, fast table with smooth dealing animations and card sounds.
+• No account, no sign-in. Works fully offline.
+
+Free and open source (GPLv3): https://github.com/rotundtapir/euchre
