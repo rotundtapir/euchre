@@ -72,13 +72,22 @@ data class EuchreState(
     val dealer: Seat,
     val phase: EuchrePhase,
     val hands: Map<Seat, List<Card>>,
-    /** The face-up turn card during round-1 bidding; null once picked up or turned down. */
+    /**
+     * The turn card. Public knowledge for the whole hand (it was dealt face-up): face-up on the
+     * kitty during round 1, then either in the dealer's hand ([upcardTaken]) or dead. AIs rely on
+     * this to exclude a turned-down card from sampling / place a picked-up one with the dealer.
+     */
     val upcard: Card? = null,
     /**
-     * The up-card's suit, remembered after pickup/turn-down: round 2 may not name it, and UIs
-     * show it. Null when the Benny Joker was turned up (it has no suit).
+     * The up-card's suit: round 2 may not name it, and UIs show it. Null when the Benny Joker was
+     * turned up (it has no suit).
      */
     val upcardSuit: Suit? = null,
+    /**
+     * True once the dealer picked the up-card up (ordered up, or the forced Benny call). False
+     * while face-up, after a turn-down, and when the dealer sat out a partner's lone order.
+     */
+    val upcardTaken: Boolean = false,
     val kitty: List<Card> = emptyList(),
     val bidding: EuchreBiddingState,
     val makers: Makers? = null,
@@ -167,6 +176,7 @@ data class EuchrePlayerView(
     val toAct: Seat? = null,
     val upcard: Card? = null,
     val upcardSuit: Suit? = null,
+    val upcardTaken: Boolean = false,
     val biddingHistory: List<Pair<Seat, EuchreAction>> = emptyList(),
     val makers: Makers? = null,
     val activeSeats: List<Seat> = emptyList(),

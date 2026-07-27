@@ -62,6 +62,7 @@ class EuchreRules(
         toAct = currentActor(state),
         upcard = state.upcard,
         upcardSuit = state.upcardSuit,
+        upcardTaken = state.upcardTaken,
         biddingHistory = state.bidding.history.map { (actor, action) ->
             // A farmers swap's cards are buried face-down: visible only to the seat that swapped.
             if (action is EuchreAction.CallFarmers && actor != seat) {
@@ -241,11 +242,10 @@ class EuchreRules(
             EuchrePhase.BIDDING_ROUND_1 -> {
                 check(state.upcard !is Joker) { "The dealer must call when the Joker is turned up" }
                 if (seat == state.dealer) {
-                    // All four passed: turn the up-card down and open round 2.
+                    // All four passed: the up-card is turned down (dead but publicly known) and
+                    // round 2 opens.
                     recorded.copy(
                         phase = EuchrePhase.BIDDING_ROUND_2,
-                        upcard = null,
-                        kitty = recorded.kitty + state.upcard!!,
                         bidding = recorded.bidding.copy(toAct = nextSeat(state.dealer, PLAYER_COUNT)),
                     )
                 } else {
@@ -286,14 +286,12 @@ class EuchreRules(
         val dealerSitsOut = action.alone && state.dealer != seat && partnerOf(seat) == state.dealer
         return if (dealerSitsOut) {
             // The dealer's hand is dead: the up-card is never picked up and nothing is buried.
-            afterTrumpMade(
-                recorded.copy(upcard = null, kitty = recorded.kitty + upcard, makers = makers),
-            )
+            afterTrumpMade(recorded.copy(makers = makers))
         } else {
             recorded.copy(
                 phase = EuchrePhase.DEALER_DISCARD,
                 makers = makers,
-                upcard = null,
+                upcardTaken = true,
                 hands = recorded.hands + (state.dealer to (recorded.hands.getValue(state.dealer) + upcard)),
                 bidding = recorded.bidding.copy(toAct = state.dealer),
             )
@@ -309,7 +307,7 @@ class EuchreRules(
                 recorded.copy(
                     phase = EuchrePhase.DEALER_DISCARD,
                     makers = Makers(seat, action.suit, orderedUp = true, alone = action.alone),
-                    upcard = null,
+                    upcardTaken = true,
                     hands = recorded.hands + (seat to (recorded.hands.getValue(seat) + Joker)),
                     bidding = recorded.bidding.copy(toAct = seat),
                 )

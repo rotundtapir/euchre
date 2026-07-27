@@ -4,6 +4,7 @@ package io.github.rotundtapir.euchre.engine
 import io.github.rotundtapir.cardkit.core.Seat
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class AloneTest {
@@ -47,7 +48,8 @@ class AloneTest {
         // No DEALER_DISCARD: the dealer's hand is dead and the up-card was never picked up.
         assertEquals(EuchrePhase.PLAY, play.phase)
         assertEquals(5, play.hands.getValue(Seat(0)).size)
-        assertTrue(upcard in play.kitty)
+        assertEquals(upcard, play.upcard)
+        assertFalse(play.upcardTaken)
         assertEquals(listOf(Seat(1), Seat(2), Seat(3)), play.activeSeats)
         assertEquals(Seat(1), play.leader)
         // Trump is still the up-card's suit even though nobody holds the card.

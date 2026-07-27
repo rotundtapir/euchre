@@ -5,8 +5,8 @@ import io.github.rotundtapir.cardkit.core.Seat
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class BiddingRound1Test {
@@ -37,7 +37,9 @@ class BiddingRound1Test {
         assertEquals(Seat(1), makers.maker)
         assertEquals(state.upcardSuit, makers.trump)
         assertTrue(makers.orderedUp)
-        assertNull(next.upcard)
+        // The turn card stays public knowledge for the whole hand.
+        assertEquals(upcard, next.upcard)
+        assertTrue(next.upcardTaken)
         assertEquals(state.upcardSuit, next.upcardSuit)
         assertEquals(6, next.hands.getValue(Seat(0)).size)
         assertTrue(upcard in next.hands.getValue(Seat(0)))
@@ -49,9 +51,10 @@ class BiddingRound1Test {
         val state = rules.newGame(seed = 1, firstDealer = Seat(0))
         val upcard = state.upcard!!
         val r2 = rules.passToRound2(state)
-        assertNull(r2.upcard)
+        // Turned down: dead but still publicly known (never picked up).
+        assertEquals(upcard, r2.upcard)
+        assertFalse(r2.upcardTaken)
         assertEquals(state.upcardSuit, r2.upcardSuit)
-        assertTrue(upcard in r2.kitty)
         assertEquals(Seat(1), rules.currentActor(r2))
     }
 
