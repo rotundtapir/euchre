@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception
+plugins {
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.kover)
+}
+
+// Pure Kotlin bots for Euchre: a deterministic heuristic plus a Monte-Carlo search bot built on
+// cardkit-ai. Depends on the rules engine (which brings cardkit-core).
+kotlin {
+    jvmToolchain(21)
+    jvm()
+    wasmJs {
+        browser()
+    }
+
+    sourceSets {
+        commonMain.dependencies {
+            api(project(":engine"))
+            implementation(libs.cardkit.ai)
+            // Already shipped transitively via cardkit-core; declared for the advanced bot's own
+            // suspend/yield search loop (zero download-size delta).
+            implementation(libs.kotlinx.coroutines.core)
+        }
+        jvmTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.junit.jupiter)
+            implementation(libs.kotlinx.coroutines.test)
+            runtimeOnly(libs.junit.platform.launcher)
+        }
+    }
+}
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+}
+
+// Coverage ratchet for the bots (same bar as 500's ai module).
+kover {
+    reports {
+        verify {
+            rule {
+                minBound(85)
+            }
+        }
+    }
+}
