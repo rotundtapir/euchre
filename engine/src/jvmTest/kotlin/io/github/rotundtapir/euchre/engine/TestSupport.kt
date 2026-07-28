@@ -2,7 +2,7 @@
 package io.github.rotundtapir.euchre.engine
 
 import io.github.rotundtapir.cardkit.testing.driveRandomly
-import io.github.rotundtapir.cardkit.testing.findSeed as findSeedWhere
+import io.github.rotundtapir.cardkit.testing.firstSeedWhere
 import kotlin.random.Random
 
 /** Applies [action] as whoever is to act. */
@@ -19,7 +19,7 @@ fun EuchreRules.passToRound2(state: EuchreState): EuchreState {
 
 /** The first seed in [seeds] whose fresh deal satisfies [predicate]. */
 fun EuchreRules.findSeed(seeds: LongRange = 0L..500_000L, predicate: (EuchreState) -> Boolean): Long =
-    findSeedWhere(seeds) { seed -> predicate(newGame(seed)) }
+    firstSeedWhere(seeds) { seed -> predicate(newGame(seed)) }
 
 /**
  * Plays a whole match with uniformly random legal actions. cardkit-testing's driver asserts on

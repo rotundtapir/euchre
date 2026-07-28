@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception
 package io.github.rotundtapir.euchre.ai
 
-import io.github.rotundtapir.cardkit.testing.findSeed as findSeedWhere
+import io.github.rotundtapir.cardkit.testing.firstSeedWhere
 import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchreRules
@@ -25,4 +25,4 @@ fun EuchreRules.passToRound2(state: EuchreState): EuchreState {
  * "what a fresh Euchre deal looks like" is game-side.
  */
 fun EuchreRules.findSeed(seeds: LongRange = 0L..500_000L, predicate: (EuchreState) -> Boolean): Long =
-    findSeedWhere(seeds) { seed -> predicate(newGame(seed)) }
+    firstSeedWhere(seeds) { seed -> predicate(newGame(seed)) }
