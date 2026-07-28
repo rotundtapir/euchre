@@ -29,7 +29,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -295,33 +294,44 @@ private fun DealFelt(dealState: DealAnimationState, cardWidth: Dp) {
 
 /**
  * The auction (and the discard/defend beats that follow it): the remaining stock face down with the
- * turn card face up on top. The up-card stays visible after a turn-down — dimmed, since its suit is
- * then the one suit round 2 may not name.
+ * turn card face up on top of it while it is on offer. Refused by all four, the card goes back
+ * under the stock face down — the caption then names its suit, which is what round 2 still cares
+ * about, rather than showing a card nobody can take.
  */
 @Composable
 private fun UpCardSpot(view: EuchrePlayerView, dealState: DealAnimationState, cardWidth: Dp) {
     val upcard = view.upcard
-    val turnedDown = view.phase != EuchrePhase.BIDDING_ROUND_1 && view.phase != EuchrePhase.FARMERS
+    val faceUp = view.phase == EuchrePhase.BIDDING_ROUND_1 || view.phase == EuchrePhase.FARMERS
+    val showFace = upcard != null && faceUp && !view.upcardTaken
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.Center) {
-            // The stock stub the turn card sits on; also the anchor the deal's last packet flies to.
-            Box(Modifier.padding(start = 10.dp, top = 10.dp).dealAnchor(dealState, UpcardTarget)) {
+            // The stock the turn card sits on; also the anchor the deal's last packet flies to. It
+            // is nudged out from behind the face-up card, and sits square once nothing is on it.
+            Box(Modifier.peekingOut(showFace).dealAnchor(dealState, UpcardTarget)) {
                 CardBack(width = cardWidth)
             }
-            if (upcard != null && !view.upcardTaken) {
-                Box(Modifier.alpha(if (turnedDown) DIMMED else 1f)) { PlayingCard(upcard, width = cardWidth) }
-            }
+            if (showFace) PlayingCard(checkNotNull(upcard), width = cardWidth)
         }
         Spacer(Modifier.height(6.dp))
-        Text(
-            when {
-                view.upcardTaken -> "Up-card taken"
-                turnedDown -> "turned down"
-                else -> "turn card"
-            },
-            style = MaterialTheme.typography.labelMedium,
-        )
+        SuitText(upCardCaption(view, showFace), style = MaterialTheme.typography.labelMedium)
     }
+}
+
+/** Nudged out from behind the card it sits under; square when it stands alone. */
+private fun Modifier.peekingOut(behindACard: Boolean): Modifier =
+    if (behindACard) padding(start = 10.dp, top = 10.dp) else this
+
+/**
+ * What the stock is doing right now. Once the turn card is refused by all four it goes back under
+ * the stock face down, as at a table — so the caption carries the only thing still in play about
+ * it: its suit, the one suit round 2 may not name.
+ */
+private fun upCardCaption(view: EuchrePlayerView, showFace: Boolean): String = when {
+    showFace -> "turn card"
+    view.upcardTaken -> "Up-card taken"
+    view.phase == EuchrePhase.BIDDING_ROUND_2 ->
+        view.upcardSuit?.let { "${it.symbol} can't be named" } ?: "turned down"
+    else -> "turned down"
 }
 
 /** Play stage: the trick in progress, or the completed trick still being shown. */
@@ -424,5 +434,5 @@ private fun TrickSlot(
 /** How far a played card's name label may overhang its card before it ellipsizes. */
 private val NAME_OVERHANG = 16.dp
 
-/** Alpha for elements that are still informative but out of play (a turned-down up-card). */
+/** Alpha for a seat that has yet to play to the current trick. */
 private const val DIMMED = 0.45f
