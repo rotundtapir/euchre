@@ -26,8 +26,8 @@ One-time setup and the release gate, in order. Mirrors 500's release process.
       > **Jack:** `~/keystores/` needs an OFFLINE backup — the key is unrecoverable and
       > unrotatable once an APK ships. Move the two password files into your password manager,
       > after which the plaintext copies can be deleted (CI has its own copies in the secrets).
-- [ ] **Launcher icon + fastlane images**: replace the generated placeholder icon in
-      `app/src/main/res/mipmap-*` with the final artwork; add the feature graphic and phone screenshots.
+- [x] **Launcher icon** — a generated placeholder set is in place (adaptive `mipmap-anydpi-v26`
+      plus every density). Deliberately provisional; final artwork lands with the store release.
 
 ### Deferred past v0.1.0 — dummy values are intentional
 
@@ -37,6 +37,12 @@ compiles and runs, but is **not** published, so its monetization ids stay placeh
 - `app/src/play/AndroidManifest.xml` carries Google's **sample** AdMob APPLICATION_ID.
 - The play `MonetizationProvider` uses Google's **test** ad units for every build type.
 - `remove_ads` refers to a Play Console product that does not exist yet.
+- **Store artwork**: the launcher icon is a generated placeholder, and
+  `fastlane/metadata/android/en-US/images/` is empty — no feature graphic, no phone screenshots.
+  Nothing consumes them until a store listing exists, and real screenshots are trivial to capture
+  from the finished app (both the emulator and the web build render the same UI), so they are
+  deliberately not faked now. The fastlane *text* metadata (title, descriptions, changelog) is
+  written and current.
 
 Nothing here blocks a v0.1.0 tag. When a Play release is scheduled: create the AdMob app +
 banner/interstitial units and the Play Console app + `remove_ads` product, complete the
