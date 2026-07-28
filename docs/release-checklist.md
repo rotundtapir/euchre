@@ -9,12 +9,14 @@ One-time setup and the release gate, in order. Mirrors 500's release process.
 - [ ] **Signing keystore** (new key, do NOT reuse 500's): generate, then add repo secrets
       `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
 - [ ] **AdMob**: create the Euchre app + banner and interstitial ad units; put the AdMob APPLICATION_ID
-      in `app/src/play/AndroidManifest.xml` and the unit ids in the play `MonetizationProvider`
-      (debug builds keep Google's test units — never point debug at real units).
+      in `app/src/play/AndroidManifest.xml` (currently Google's sample app id) and the unit ids in the
+      play `MonetizationProvider` (currently Google's test units for *every* build type — switch only
+      the release branch over; never point debug at real units).
 - [ ] **Play Console**: create the app, the `remove_ads` in-app product, data-safety declarations
       (ads SDK only; the app itself collects nothing).
 - [ ] **GitHub Pages**: repo Settings → Pages → source "GitHub Actions".
-- [ ] **Launcher icon + fastlane images**: final icon, feature graphic, phone screenshots.
+- [ ] **Launcher icon + fastlane images**: replace the generated placeholder icon in
+      `app/src/main/res/mipmap-*` with the final artwork; add the feature graphic and phone screenshots.
 
 ## Release gate (every tag)
 
