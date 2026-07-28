@@ -29,14 +29,15 @@ test('a settings change persists across a page reload', async ({ page }) => {
   expect(errors, 'settings flow must be console-error clean').toEqual([]);
 });
 
-// The written rules are the "How to play" destination until the interactive lessons land, so the
-// button must never be a dead end.
-test('How to play opens the written rules', async ({ page }) => {
+// "How to play" opens the four interactive lessons, but the written rules must stay reachable from
+// the picker — the reference is not allowed to disappear behind the walkthrough.
+test('the lesson picker still reaches the written rules', async ({ page }) => {
   const errors = collectErrors(page);
   await page.goto('/euchre/');
   await awaitAppBoot(page);
 
   await clickByRole(page, 'button', 'How to play');
+  await clickByRole(page, 'button', 'Read the rules');
   await expect(page.getByRole('button', { name: 'Next' })).toBeVisible({ timeout: 15_000 });
   // The bowers — the rule newcomers get wrong — must be covered. Asserted as *attached* rather
   // than visible: the reader measures every page to keep its chrome from jumping, so all of the

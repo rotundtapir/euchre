@@ -286,9 +286,15 @@ class GameFlowTest : EuchreUiTest() {
     }
 
     @Test
-    fun howToPlay_opensTheWrittenRules_andCloses() {
-        // Until the interactive lessons land, "How to play" opens the written rules — never a dead end.
+    fun howToPlay_opensTheLessonPicker_andStillReachesTheWrittenRules() {
+        // "How to play" now offers the four interactive lessons — but the written rules must stay
+        // reachable from it, so the reference is never lost behind the walkthrough.
         rule.onNodeWithTag("walkthroughButton").performClick()
+        rule.waitUntil(STEP_TIMEOUT_MS) { nodesWithTag("lessonPicker").isNotEmpty() }
+        listOf("basics", "bidding", "alone", "defense").forEach { id ->
+            rule.onNodeWithTag("lesson:$id").performScrollTo().assertIsDisplayed()
+        }
+        rule.onNodeWithTag("readRules").performScrollTo().performClick()
         rule.waitUntil(STEP_TIMEOUT_MS) { nodesWithTag("rulesNext").isNotEmpty() }
         while (nodesWithTag("rulesNext").isNotEmpty()) {
             rule.onNodeWithTag("rulesNext").performClick()
