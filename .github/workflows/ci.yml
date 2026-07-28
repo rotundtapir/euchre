@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception
-# Initial CI, scoped to the modules that exist (:engine, :ai). As :shared/:app/:web land this
+# Initial CI, scoped to the modules that exist (:engine, :ai, :shared). As :app/:web land this
 # grows into the full pipeline mirrored from the 500 repo: flavors, web dist + Playwright e2e,
 # emulator suite, FOSS-purity gate, and the tag-triggered release / verify-reproducible /
 # publish-release / deploy-web jobs.
@@ -47,8 +47,14 @@ jobs:
       - name: Coverage verification (engine + ai)
         run: ./gradlew :engine:koverVerify :ai:koverVerify
 
-      - name: wasmJs compiles (engine + ai)
-        run: ./gradlew :engine:compileKotlinWasmJs :ai:compileKotlinWasmJs
+      # The UI module's own tests: the ViewModel/pacing contract, settings persistence, sound
+      # triggers and the pure table helpers. They need no emulator (nothing touches the Android
+      # framework), so they run in the same job.
+      - name: Unit tests (shared UI)
+        run: ./gradlew :shared:testDebugUnitTest
+
+      - name: wasmJs compiles (engine + ai + shared)
+        run: ./gradlew :engine:compileKotlinWasmJs :ai:compileKotlinWasmJs :shared:compileKotlinWasmJs
 
       - name: Upload quality reports
         if: failure()
