@@ -138,11 +138,21 @@ internal fun TutorialBubble(
     }
 }
 
-/** The anchor the bubble's tail points at for the pending step. */
-private fun targetKey(step: EuchreTutorialStep?, isHumanDecision: Boolean): String = when {
+/**
+ * The anchor the bubble's tail points at for the pending step.
+ *
+ * A step that names a card points at that card, wherever the fan currently has it — sorting the
+ * hand moves it, and the anchor moves with it. Only the bidding steps point at a button.
+ *
+ * The discard used to fall through to [ACTION_ANCHOR] with the rest, but its panel anchors no
+ * button: the tail was left aiming at whatever last recorded that key — the previous step's bid
+ * button, gone from the screen by then — so it pointed at empty felt near the middle of the table
+ * instead of at the card the text was naming.
+ */
+internal fun targetKey(step: EuchreTutorialStep?, isHumanDecision: Boolean): String = when {
     !isHumanDecision -> TRICK_ANCHOR
     step is EuchreTutorialStep.PlayStep -> cardAnchor(step.card.code)
-    // Bidding and the discard both anchor on the one enabled button in the action panel.
+    step is EuchreTutorialStep.DiscardStep -> cardAnchor(step.card.code)
     else -> ACTION_ANCHOR
 }
 

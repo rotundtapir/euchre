@@ -6,6 +6,11 @@ import android.graphics.Bitmap
 import android.os.SystemClock
 import androidx.core.graphics.scale
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -16,6 +21,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.rotundtapir.euchre.ui.FELT_TAG
+import io.github.rotundtapir.euchre.ui.HAND_CARD_TAG_PREFIX
 import java.io.File
 import org.junit.Rule
 import org.junit.Test
@@ -111,6 +118,67 @@ class TutorialFrameCapture {
         small.recycle()
     }
 
+    /**
+     * Films the way out of a finished lesson — the epilogue's "Next" through to the lesson picker.
+     *
+     * Screen recording rather than [captureToImage] here, because the picker is a Dialog: it is a
+     * separate window, invisible to a capture of the composition root. `screenrecord` sees whatever
+     * the display shows, dialogs included, and it runs at the device's own frame rate, so this is a
+     * faithful (if wall-clock) film where the deal capture is a deterministic one.
+     */
+    @Test
+    fun filmTheReturnToTheLessonPicker() {
+        playLessonOneToItsEpilogue()
+
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        automation.executeShellCommand("screenrecord --time-limit $RECORD_SECONDS $RECORDING")
+        Thread.sleep(SPIN_UP_MILLIS) // the recorder takes a moment to actually start writing
+        rule.onNodeWithTag("tutorialCompleteContinue").performClick()
+        Thread.sleep(RECORD_SECONDS * 1000L) // let the clip run to its own time limit
+    }
+
+    /** Plays lesson 1's five scripted tricks and pages its epilogue, leaving "Next" on screen. */
+    private fun playLessonOneToItsEpilogue() {
+        rule.onNodeWithTag("walkthroughButton").performClick()
+        rule.waitUntil(TIMEOUT_MS) { tagPresent("lessonPicker") }
+        rule.onNodeWithTag("lesson:basics").performScrollTo().performClick()
+        rule.waitUntil(TIMEOUT_MS) { tagPresent("tutorialPrimerNext") }
+        while (tagPresent("tutorialPrimerNext")) {
+            rule.onNodeWithTag("tutorialPrimerNext").performClick()
+            rule.waitForIdle()
+        }
+        rule.onNodeWithTag("tutorialPrimerStart").performClick()
+
+        // Answer whatever the lesson asks until its last page is up. Unlike TutorialFlowTest this
+        // runs at SLOW, where the pacing is live: a lesson always holds completed tricks, so every
+        // trick waits for a tap on the felt that an OFF-speed run never has to make.
+        var guard = 0
+        while (!tagPresent("tutorialCompleteContinue") && guard++ < MAX_STEPS) {
+            when {
+                tagPresent("tutorialEpilogueNext") -> rule.onNodeWithTag("tutorialEpilogueNext").performClick()
+                tagPresent("handResultContinue") -> rule.onNodeWithTag("handResultContinue").performClick()
+                heldTrick().fetchSemanticsNodes().isNotEmpty() -> heldTrick()[0].performClick()
+                playableCards().fetchSemanticsNodes().size == 1 ->
+                    playableCards()[0].performScrollTo().performClick()
+                else -> Thread.sleep(POLL_MILLIS) // a bot is thinking
+            }
+            rule.waitForIdle()
+        }
+        check(tagPresent("tutorialCompleteContinue")) { "lesson never reached its last page" }
+    }
+
+    /** The felt, when it is holding a completed trick and waiting to be tapped away. */
+    private fun heldTrick() = rule.onAllNodes(hasTestTag(FELT_TAG) and hasClickAction(), useUnmergedTree = true)
+
+    /** The cards the lesson currently allows — exactly one, at every step of lesson 1. */
+    private fun playableCards() = rule.onAllNodes(
+        hasClickAction() and
+            SemanticsMatcher("in-hand card") { node ->
+                node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(HAND_CARD_TAG_PREFIX) == true
+            },
+        useUnmergedTree = true,
+    )
+
     private fun tagPresent(tag: String): Boolean =
         rule.onAllNodes(androidx.compose.ui.test.hasTestTag(tag), useUnmergedTree = true)
             .fetchSemanticsNodes().isNotEmpty()
@@ -121,5 +189,16 @@ class TutorialFrameCapture {
         /** However fast captures come; ~10-20fps in practice, which SLOW is stretched enough for. */
         const val FRAMES = 200
         const val TIMEOUT_MS = 20_000L
+
+        /**
+         * Generous: at SLOW the lesson is a ~7s deal, four bot bids a beat apart, then five tricks
+         * of bot beats and hold-taps — a couple of minutes of budget, spent only if something hangs.
+         */
+        const val MAX_STEPS = 400
+        const val POLL_MILLIS = 250L
+
+        const val RECORDING = "/sdcard/picker-transition.mp4"
+        const val RECORD_SECONDS = 6
+        const val SPIN_UP_MILLIS = 1500L
     }
 }
