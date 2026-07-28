@@ -1,0 +1,7 @@
+Bug fixes, mostly to the table and the tutorial:
+
+- Fixed a game freezing after a hand was passed in: the next hand dealt but never appeared.
+- The first deal is animated again, and the turn card's suit stays secret until it is turned over.
+- No flicker when a game starts, and the table no longer shifts as panels come and go.
+- Finishing a lesson returns to the lesson list, so the next one is a tap away.
+- The tutorial's bubble points at the card it names and keeps clear of the buttons.
