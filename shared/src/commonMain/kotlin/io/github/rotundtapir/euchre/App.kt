@@ -6,7 +6,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -16,11 +18,18 @@ import io.github.rotundtapir.cardkit.ui.AppConfig
 import io.github.rotundtapir.cardkit.ui.LocalAppConfig
 import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
 import io.github.rotundtapir.cardkit.ui.settings.BotSkill
+import io.github.rotundtapir.cardkit.ui.tutorial.TutorialPagesDialog
 import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.ui.BotSetupScreen
 import io.github.rotundtapir.euchre.ui.GameScreen
 import io.github.rotundtapir.euchre.ui.HomeScreen
+import io.github.rotundtapir.euchre.ui.RulesDialog
 import io.github.rotundtapir.euchre.ui.SettingsControls
+import io.github.rotundtapir.euchre.ui.tutorial.EuchreTutorialSession
+import io.github.rotundtapir.euchre.ui.tutorial.LessonPickerDialog
+import io.github.rotundtapir.euchre.ui.tutorial.TutorialLesson
+import io.github.rotundtapir.euchre.ui.tutorial.tutorialLesson
+import io.github.rotundtapir.euchre.ui.tutorial.tutorialLessons
 import kotlinx.coroutines.launch
 
 /** Top-level screens the app switches between. */
@@ -56,6 +65,16 @@ fun EuchreApp(
     val view by vm.humanView.collectAsState()
     val scope = rememberCoroutineScope()
 
+    // The interactive "How to play": a lesson is picked, its primer read, then its scripted hand is
+    // dealt through the normal wiring. The step index is saveable so an activity recreation
+    // mid-lesson resumes at the same point in the script.
+    var showLessonPicker by rememberSaveable { mutableStateOf(false) }
+    var showRules by rememberSaveable { mutableStateOf(false) }
+    var primerLessonId by rememberSaveable { mutableStateOf<String?>(null) }
+    var activeLessonId by rememberSaveable { mutableStateOf<String?>(null) }
+    var lessonStepIndex by rememberSaveable { mutableIntStateOf(0) }
+    val activeLesson = activeLessonId?.let(::tutorialLesson)
+
     val settingsControls = rememberSettingsControls(
         settings = settings,
         scope = { block -> scope.launch { block() } },
@@ -69,7 +88,25 @@ fun EuchreApp(
 
     // The pacing settings live in the ViewModel (its gates read them as flows), so mirror them in.
     LaunchedEffect(settingsControls.animationSpeed) { vm.setAnimationSpeed(settingsControls.animationSpeed) }
-    LaunchedEffect(settingsControls.holdTricks) { vm.setHoldTricks(settingsControls.holdTricks) }
+    // A lesson forces the trick hold on so every completed trick waits to be explained.
+    LaunchedEffect(settingsControls.holdTricks, activeLessonId) {
+        vm.setHoldTricks(settingsControls.holdTricks || activeLessonId != null)
+    }
+
+    val startLesson: (TutorialLesson) -> Unit = { lesson ->
+        // The script depends on the exact table: pinned seed, pinned dealer, pinned house rules and
+        // the standard bots. None of the player's own settings may reach it.
+        vm.newGame(
+            seed = lesson.seed,
+            houseRules = lesson.pinnedRules,
+            botSkill = BotSkill.STANDARD,
+            firstDealer = lesson.dealer,
+        )
+        lessonStepIndex = 0
+        primerLessonId = null
+        activeLessonId = lesson.id
+        appScreen = AppScreen.GAME.name
+    }
 
     CompositionLocalProvider(LocalAppConfig provides appConfig) {
         // A single HomeScreen call also covers the first frame after newGame() (screen set to GAME,
@@ -82,11 +119,28 @@ fun EuchreApp(
                 settings = settingsControls,
                 monetization = monetization,
                 onAction = { action -> vm.submitHumanAction(action) },
-                onExit = { appScreen = AppScreen.HOME.name },
+                onExit = {
+                    activeLessonId = null
+                    appScreen = AppScreen.HOME.name
+                },
                 onResultDismiss = vm.pacing::acknowledgeHandResult,
                 onDealAnimationFinish = vm.pacing::dealAnimationFinished,
                 onTrickAcknowledge = vm.pacing::acknowledgeTrick,
                 soundHook = playSound,
+                tutorial = activeLesson?.let { lesson ->
+                    remember(lesson, lessonStepIndex) {
+                        EuchreTutorialSession(
+                            lesson = lesson,
+                            stepIndex = lessonStepIndex,
+                            onAdvance = { lessonStepIndex++ },
+                            onFinish = {
+                                scope.launch { settings.setLessonDone(lesson.id, true) }
+                                activeLessonId = null
+                                appScreen = AppScreen.HOME.name
+                            },
+                        )
+                    }
+                },
             )
             appScreen == AppScreen.BOT_SETUP.name -> BotSetupScreen(
                 settings = settingsControls,
@@ -105,13 +159,47 @@ fun EuchreApp(
                 monetization = monetization,
                 settings = settingsControls,
                 onPlayWithBots = { appScreen = AppScreen.BOT_SETUP.name },
-                // TODO(tutorial): the four scripted lessons land in a follow-up and will be passed
-                // as onHowToPlay. Until then the button opens the written rules (HomeScreen's
-                // default), so it is never a dead end.
+                onHowToPlay = { showLessonPicker = true },
+            )
+        }
+
+        if (showLessonPicker) {
+            LessonPickerDialog(
+                lessonsDone = rememberLessonsDone(settings),
+                onSelect = { lesson ->
+                    showLessonPicker = false
+                    primerLessonId = lesson.id
+                },
+                onReadRules = {
+                    showLessonPicker = false
+                    showRules = true
+                },
+                onDismiss = { showLessonPicker = false },
+            )
+        }
+        if (showRules) {
+            RulesDialog(houseRules = settingsControls.houseRules, onDismiss = { showRules = false })
+        }
+        primerLessonId?.let(::tutorialLesson)?.let { lesson ->
+            TutorialPagesDialog(
+                pages = lesson.prologue,
+                nextTag = "tutorialPrimerNext",
+                finishLabel = "Deal",
+                finishTag = "tutorialPrimerStart",
+                onFinish = { startLesson(lesson) },
+                onDismiss = { primerLessonId = null },
+                uniformBodyHeight = true,
             )
         }
     }
 }
+
+/** Which lessons the player has already finished, collected once for the picker. */
+@Composable
+private fun rememberLessonsDone(settings: SettingsRepository): Set<String> =
+    tutorialLessons.filter { lesson ->
+        settings.lessonDone(lesson.id).collectAsState(initial = false).value
+    }.map { it.id }.toSet()
 
 /**
  * Collects every persisted setting and bundles it with its write-through callback. Test overrides

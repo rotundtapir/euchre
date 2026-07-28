@@ -34,10 +34,15 @@ import io.github.rotundtapir.cardkit.ui.deal.FlyingDealCard
 import io.github.rotundtapir.cardkit.ui.deal.dealTimings
 import io.github.rotundtapir.cardkit.ui.deal.runDealAnimation
 import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
+import io.github.rotundtapir.cardkit.ui.tutorial.TutorialAnchors
+import io.github.rotundtapir.cardkit.ui.tutorial.TutorialPage
+import io.github.rotundtapir.cardkit.ui.tutorial.TutorialPagesDialog
 import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
 import io.github.rotundtapir.euchre.engine.HAND_SIZE
 import io.github.rotundtapir.euchre.transitions
+import io.github.rotundtapir.euchre.ui.tutorial.EuchreTutorialSession
+import io.github.rotundtapir.euchre.ui.tutorial.TutorialBubble
 import kotlinx.coroutines.flow.first
 
 /**
@@ -61,6 +66,9 @@ fun GameScreen(
     onDealAnimationFinish: (Int) -> Unit = {},
     onTrickAcknowledge: (Int, Int) -> Unit = { _, _ -> },
     soundHook: ((SoundEffect) -> Unit)? = null,
+    // Non-null while a tutorial lesson is running: the board is the same, but only the scripted
+    // action is enabled, completed tricks are always held, and the lesson's own dialogs bookend it.
+    tutorial: EuchreTutorialSession? = null,
 ) {
     val animationSpeed = settings.animationSpeed
     var sortHand by rememberSaveable { mutableStateOf(settings.sortByDefault) }
@@ -73,6 +81,10 @@ fun GameScreen(
     // between hands the dialog shows under the NEXT hand's number. Keyed on winner so it resets if
     // this composable survives into another game.
     var finalResultAcked by remember(view.winner) { mutableStateOf(false) }
+    // Set once the lesson's hand has been scored and its result dialog dismissed.
+    var lessonComplete by rememberSaveable { mutableStateOf(false) }
+    // Screen rects of the lesson's interaction targets (a button, a card, the felt), for the bubble.
+    val tutorialAnchors = if (tutorial != null) remember { TutorialAnchors() } else null
 
     val dealState = remember { DealAnimationState() }
     dealState.soundHook = soundHook
@@ -112,6 +124,8 @@ fun GameScreen(
                     modifier = Modifier.weight(1f),
                     holdTricks = settings.holdTricks,
                     onTrickAcknowledge = onTrickAcknowledge,
+                    forceHold = tutorial != null,
+                    anchors = tutorialAnchors,
                 )
                 when {
                     dealState.dealing -> DealingHandRow(
@@ -134,6 +148,8 @@ fun GameScreen(
                         sortHand = sortHand,
                         onToggleSort = { sortHand = !sortHand },
                         onAction = onAction,
+                        tutorial = tutorial,
+                        anchors = tutorialAnchors,
                     )
                 }
                 Spacer(Modifier.height(8.dp))
@@ -141,6 +157,9 @@ fun GameScreen(
             }
             // The packet currently in flight from the deck to a pile, drawn above everything.
             FlyingDealCard(dealState)
+            if (tutorial != null && tutorialAnchors != null && !dealState.dealing) {
+                TutorialBubble(tutorial, view, botNames, tutorialAnchors, dealState.overlayOrigin)
+            }
         }
     }
 
@@ -171,11 +190,30 @@ fun GameScreen(
         view = view,
         botNames = botNames,
         onDismiss = {
-            resultAckedHand = view.handNumber
-            onResultDismiss(view.handNumber)
-            if (view.winner != null) finalResultAcked = true
+            if (tutorial != null) {
+                // The lesson's result is deliberately never acknowledged: the next hand's shuffle
+                // waits on a signal that now never comes, so the finished board stays put behind
+                // the epilogue instead of dealing on.
+                lessonComplete = true
+            } else {
+                resultAckedHand = view.handNumber
+                onResultDismiss(view.handNumber)
+                if (view.winner != null) finalResultAcked = true
+            }
         },
     )
+
+    if (tutorial != null && lessonComplete) {
+        TutorialPagesDialog(
+            pages = tutorial.lesson.epilogue + TutorialPage("Lesson complete", tutorial.lesson.completion),
+            nextTag = "tutorialEpilogueNext",
+            finishLabel = "Finish",
+            finishTag = "tutorialCompleteContinue",
+            onFinish = tutorial.onFinish,
+            lastPageTag = "tutorialComplete",
+            uniformBodyHeight = true,
+        )
+    }
 }
 
 /** How far the deal animation has got, as the screen's layout needs to know it. */

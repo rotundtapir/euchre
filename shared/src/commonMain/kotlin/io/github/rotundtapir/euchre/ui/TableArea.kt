@@ -53,6 +53,8 @@ import io.github.rotundtapir.cardkit.ui.deal.ShufflingDeck
 import io.github.rotundtapir.cardkit.ui.deal.dealAnchor
 import io.github.rotundtapir.cardkit.ui.felt.CardSurfaceWhite
 import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
+import io.github.rotundtapir.cardkit.ui.tutorial.TutorialAnchors
+import io.github.rotundtapir.cardkit.ui.tutorial.tutorialTarget
 import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
@@ -60,6 +62,7 @@ import io.github.rotundtapir.euchre.engine.PLAYER_COUNT
 import io.github.rotundtapir.euchre.engine.TEAM_COUNT
 import io.github.rotundtapir.euchre.engine.TRICKS_PER_HAND
 import io.github.rotundtapir.euchre.engine.WINNING_SCORE
+import io.github.rotundtapir.euchre.ui.tutorial.TRICK_ANCHOR
 
 /**
  * The top bar: both teams' match scores (Euchre plays to [WINNING_SCORE]) with this hand's trick
@@ -240,8 +243,12 @@ fun TrickArea(
     modifier: Modifier = Modifier,
     holdTricks: Boolean = false,
     onTrickAcknowledge: (Int, Int) -> Unit = { _, _ -> },
+    // A tutorial lesson forces the hold on regardless of the setting, so the guidance bubble can
+    // explain every completed trick, and anchors itself to the felt while it does.
+    forceHold: Boolean = false,
+    anchors: TutorialAnchors? = null,
 ) {
-    val holdingTrick = holdTricks &&
+    val holdingTrick = (holdTricks || forceHold) &&
         animationSpeed != AnimationSpeed.OFF &&
         !dealState.dealing &&
         view.phase == EuchrePhase.PLAY &&
@@ -253,6 +260,7 @@ fun TrickArea(
             .fillMaxWidth()
             .padding(vertical = 12.dp)
             .background(Color(0x22000000), RoundedCornerShape(16.dp))
+            .tutorialTarget(anchors, TRICK_ANCHOR)
             .tappableWhen(holdingTrick) { onTrickAcknowledge(view.handNumber, view.trickNumber) },
         contentAlignment = Alignment.Center,
     ) {
@@ -264,7 +272,10 @@ fun TrickArea(
         val cardWidth = minOf(byWidth, byHeight).coerceIn(56.dp, 96.dp)
         when {
             dealState.dealing -> DealFelt(dealState, cardWidth)
-            view.phase == EuchrePhase.PLAY -> PlayFelt(view, botNames, cardWidth, holdingTrick)
+            // During a lesson the bubble carries the "tap the trick" instruction, so the felt's
+            // own hint would just say it twice.
+            view.phase == EuchrePhase.PLAY ->
+                PlayFelt(view, botNames, cardWidth, holdingTrick && !forceHold)
             else -> UpCardSpot(view, dealState, cardWidth)
         }
     }
@@ -322,7 +333,7 @@ private fun PlayFelt(
     view: EuchrePlayerView,
     botNames: Map<Seat, String>,
     cardWidth: Dp,
-    holdingTrick: Boolean,
+    showTapHint: Boolean,
 ) {
     AnimatedContent(
         targetState = view,
@@ -337,7 +348,7 @@ private fun PlayFelt(
                 TrickPlaysRow(v, botNames, lastTrick.plays, cardWidth)
                 Spacer(Modifier.height(4.dp))
                 Text("${seatLabel(v.seat, botNames, lastTrick.winner)} won the trick")
-                if (holdingTrick) {
+                if (showTapHint) {
                     Text(
                         "tap to continue",
                         style = MaterialTheme.typography.labelMedium,

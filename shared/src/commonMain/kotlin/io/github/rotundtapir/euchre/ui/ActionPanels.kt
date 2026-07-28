@@ -36,10 +36,17 @@ import io.github.rotundtapir.cardkit.ui.CardHand
 import io.github.rotundtapir.cardkit.ui.SuitText
 import io.github.rotundtapir.cardkit.ui.felt.CardSurfaceWhite
 import io.github.rotundtapir.cardkit.ui.felt.InkOnCardSurface
+import io.github.rotundtapir.cardkit.ui.tutorial.TutorialAnchors
+import io.github.rotundtapir.cardkit.ui.tutorial.tutorialTarget
 import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
 import io.github.rotundtapir.euchre.engine.FARMERS_SWAP_SIZE
+import io.github.rotundtapir.euchre.ui.tutorial.ACTION_ANCHOR
+import io.github.rotundtapir.euchre.ui.tutorial.EuchreTutorialSession
+import io.github.rotundtapir.euchre.ui.tutorial.EuchreTutorialStep
+import io.github.rotundtapir.euchre.ui.tutorial.HAND_ANCHOR
+import io.github.rotundtapir.euchre.ui.tutorial.cardAnchor
 
 /**
  * Everything below the felt: the prompt for whatever the human owes the engine right now, plus
@@ -54,6 +61,10 @@ fun ActionArea(
     onToggleSort: () -> Unit,
     onAction: (EuchreAction) -> Unit,
     modifier: Modifier = Modifier,
+    // Non-null during a tutorial lesson: only the scripted action is enabled, and taking it
+    // advances the script. [anchors] records where that action sits so the bubble can point at it.
+    tutorial: EuchreTutorialSession? = null,
+    anchors: TutorialAnchors? = null,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier.fillMaxWidth()) {
         Text(
@@ -61,7 +72,7 @@ fun ActionArea(
             fontWeight = if (view.isMyTurn) FontWeight.Bold else FontWeight.Normal,
         )
         Spacer(Modifier.height(4.dp))
-        val hand = HandParams(view, sortHand, onToggleSort)
+        val hand = HandParams(view, sortHand, onToggleSort, tutorial, anchors)
         when {
             !view.isMyTurn -> {
                 Text(view.toAct?.let { "Waiting for ${seatLabel(view.seat, botNames, it)}…" } ?: "")
@@ -86,8 +97,14 @@ fun ActionArea(
  */
 @Composable
 private fun BiddingRound1Panel(view: EuchrePlayerView, hand: HandParams, onAction: (EuchreAction) -> Unit) {
+    val step = hand.tutorial?.step as? EuchreTutorialStep.Round1Step
     var alone by remember(view.handNumber) { mutableStateOf(false) }
     var acted by remember(view) { mutableStateOf(false) }
+    // In a lesson only the scripted button arms — and an order-up scripted "alone" stays disabled
+    // until the box is actually ticked, because ticking it IS the lesson.
+    val passEnabled = !acted && (hand.tutorial == null || step?.orderUp == false)
+    val orderEnabled = !acted &&
+        (hand.tutorial == null || (step != null && step.orderUp && alone == step.alone))
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         SuitText("Order up ${view.upcardSuit?.symbol ?: view.upcard?.label.orEmpty()}?", fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
@@ -95,21 +112,25 @@ private fun BiddingRound1Panel(view: EuchrePlayerView, hand: HandParams, onActio
             FeltActionButton(
                 label = "Pass",
                 tag = "bid:pass",
-                enabled = !acted,
+                enabled = passEnabled,
                 onClick = {
                     acted = true
                     onAction(EuchreAction.Pass)
+                    hand.tutorial?.script?.onAdvance?.invoke()
                 },
+                modifier = hand.anchorFor(step?.orderUp == false),
             )
             FeltActionButton(
                 label = if (view.seat == view.dealer) "Pick it up" else "Order it up",
                 tag = "bid:orderUp",
-                enabled = !acted,
+                enabled = orderEnabled,
                 emphasized = true,
                 onClick = {
                     acted = true
                     onAction(EuchreAction.OrderUp(alone))
+                    hand.tutorial?.script?.onAdvance?.invoke()
                 },
+                modifier = hand.anchorFor(step?.orderUp == true),
             )
         }
         AloneToggle(alone) { alone = it }
@@ -123,10 +144,12 @@ private fun BiddingRound1Panel(view: EuchrePlayerView, hand: HandParams, onActio
  */
 @Composable
 private fun BiddingRound2Panel(view: EuchrePlayerView, hand: HandParams, onAction: (EuchreAction) -> Unit) {
+    val step = hand.tutorial?.step as? EuchreTutorialStep.Round2Step
     var alone by remember(view.handNumber) { mutableStateOf(false) }
     var acted by remember(view) { mutableStateOf(false) }
     val suits = view.legalActions.filterIsInstance<EuchreAction.CallTrump>().map { it.suit }.distinct()
     val mayPass = view.legalActions.any { it is EuchreAction.Pass }
+    val passEnabled = !acted && (hand.tutorial == null || (step != null && step.call == null))
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         Text(if (mayPass) "Name trump, or pass" else "You must name trump", fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
@@ -138,23 +161,29 @@ private fun BiddingRound2Panel(view: EuchrePlayerView, hand: HandParams, onActio
                 FeltActionButton(
                     label = "Pass",
                     tag = "bid:pass",
-                    enabled = !acted,
+                    enabled = passEnabled,
                     onClick = {
                         acted = true
                         onAction(EuchreAction.Pass)
+                        hand.tutorial?.script?.onAdvance?.invoke()
                     },
+                    modifier = hand.anchorFor(step != null && step.call == null),
                 )
             }
             suits.forEach { suit ->
+                val scripted = step != null && step.call == suit
+                val armed = step != null && step.call == suit && alone == step.alone
                 FeltActionButton(
                     label = suit.symbol,
                     tag = "bid:trump:${suit.name}",
-                    enabled = !acted,
+                    enabled = !acted && (hand.tutorial == null || armed),
                     emphasized = true,
                     onClick = {
                         acted = true
                         onAction(EuchreAction.CallTrump(suit, alone))
+                        hand.tutorial?.script?.onAdvance?.invoke()
                     },
+                    modifier = hand.anchorFor(scripted),
                 )
             }
         }
@@ -198,13 +227,18 @@ private fun DefendAlonePanel(hand: HandParams, onAction: (EuchreAction) -> Unit)
 /** After picking the turn card up the dealer holds six and buries one. */
 @Composable
 private fun DealerDiscardPanel(hand: HandParams, onAction: (EuchreAction) -> Unit) {
+    val step = hand.tutorial?.step as? EuchreTutorialStep.DiscardStep
     CardSelectionPanel(
         hand = hand,
         prompt = "Pick it up — bury one card",
         confirmLabel = "Discard",
         confirmTag = "discardButton",
         requiredCount = 1,
-        onConfirm = { cards -> onAction(EuchreAction.DealerDiscard(cards.single())) },
+        onConfirm = { cards ->
+            onAction(EuchreAction.DealerDiscard(cards.single()))
+            hand.tutorial?.script?.onAdvance?.invoke()
+        },
+        selectable = if (hand.tutorial == null) null else setOfNotNull(step?.card),
     )
 }
 
@@ -241,10 +275,18 @@ private fun PlayPanel(hand: HandParams, onAction: (EuchreAction) -> Unit) {
     val playable = remember(hand.view) {
         hand.view.legalActions.filterIsInstance<EuchreAction.PlayCard>().map { it.card }.toSet()
     }
+    val scripted = (hand.tutorial?.step as? EuchreTutorialStep.PlayStep)?.card
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         Text("Your turn — tap a card to play")
         Spacer(Modifier.height(4.dp))
-        HumanHand(hand, playable = { it in playable }, onClick = { onAction(EuchreAction.PlayCard(it)) })
+        HumanHand(
+            hand = hand,
+            playable = { it in playable && (hand.tutorial == null || it == scripted) },
+            onClick = { card ->
+                onAction(EuchreAction.PlayCard(card))
+                hand.tutorial?.script?.onAdvance?.invoke()
+            },
+        )
     }
 }
 
@@ -262,6 +304,8 @@ private fun CardSelectionPanel(
     requiredCount: Int,
     onConfirm: (List<Card>) -> Unit,
     secondary: (@Composable (Boolean, () -> Unit) -> Unit)? = null,
+    // Tutorial constraint: when non-null, only these cards may be selected.
+    selectable: Set<Card>? = null,
 ) {
     var selected by remember(hand.view.hand) { mutableStateOf(emptySet<Card>()) }
     var acted by remember(hand.view) { mutableStateOf(false) }
@@ -286,7 +330,7 @@ private fun CardSelectionPanel(
         Spacer(Modifier.height(4.dp))
         HumanHand(
             hand = hand,
-            playable = { true },
+            playable = { selectable == null || it in selectable },
             selected = selected,
             onClick = { card ->
                 selected = when {
@@ -325,6 +369,7 @@ private fun FeltActionButton(
     tag: String,
     enabled: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     emphasized: Boolean = false,
 ) {
     val onBackground = MaterialTheme.colorScheme.onBackground
@@ -337,7 +382,7 @@ private fun FeltActionButton(
             disabledContentColor = onBackground.copy(alpha = 0.38f),
         ),
         border = BorderStroke(1.dp, onBackground.copy(alpha = 0.6f)),
-        modifier = Modifier.testTag(tag),
+        modifier = modifier.testTag(tag),
     ) { SuitText(label) }
 }
 
@@ -346,7 +391,13 @@ private data class HandParams(
     val view: EuchrePlayerView,
     val sortHand: Boolean,
     val onToggleSort: () -> Unit,
-)
+    val tutorial: EuchreTutorialSession? = null,
+    val anchors: TutorialAnchors? = null,
+) {
+    /** Records the tutorial's "point here" anchor on this element when it is the scripted one. */
+    fun anchorFor(scripted: Boolean): Modifier =
+        Modifier.tutorialTarget(if (scripted) anchors else null, ACTION_ANCHOR)
+}
 
 /** Fan exposure: each card advances this fraction of a card width, so only that strip is visible. */
 private const val HAND_EXPOSURE = 0.5f
@@ -385,7 +436,10 @@ private fun HumanHand(
             view.hand
         }
         Box(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .tutorialTarget(hand.anchors, HAND_ANCHOR),
             contentAlignment = Alignment.Center,
         ) {
             CardHand(
@@ -396,7 +450,13 @@ private fun HumanHand(
                 dimUnplayable = dimUnplayable,
                 selected = selected,
                 onCardClick = onClick,
-                cardModifier = { card -> Modifier.testTag("card:${card.code}") },
+                cardModifier = { card ->
+                    // Only the exposed left strip of a fanned card is visible, so that is the rect
+                    // the tutorial's tail should point at.
+                    Modifier
+                        .testTag("card:${card.code}")
+                        .tutorialTarget(hand.anchors, cardAnchor(card.code), widthFraction = HAND_EXPOSURE)
+                },
             )
         }
     }

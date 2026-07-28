@@ -82,12 +82,18 @@ class EuchreViewModel : ViewModel() {
         holdTricks.value = value
     }
 
-    /** Starts a fresh match. Cancels any game already running. */
+    /**
+     * Starts a fresh match. Cancels any game already running.
+     *
+     * [firstDealer] is a seat, not a setting: a normal game always opens on the human's deal, but a
+     * scripted tutorial lesson pins whichever seat its hand was authored for.
+     */
     fun newGame(
         seed: Long,
         houseRules: EuchreHouseRules = EuchreHouseRules(),
         botSkill: BotSkill = SettingsDefaults.BOT_SKILL,
         aiBudgetMillis: Long? = null,
+        firstDealer: Seat = humanSeat,
     ) {
         gameJob?.cancel()
         pacing.reset()
@@ -107,7 +113,8 @@ class EuchreViewModel : ViewModel() {
             }
         }
         gameJob = viewModelScope.launch {
-            GameDriver(gameRules, players).play(gameRules.newGame(seed)) { snapshot -> state.value = snapshot }
+            GameDriver(gameRules, players)
+                .play(gameRules.newGame(seed, firstDealer)) { snapshot -> state.value = snapshot }
         }
     }
 
