@@ -173,7 +173,7 @@ private fun DefendAlonePanel(hand: HandParams, onAction: (EuchreAction) -> Unit)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FeltActionButton(
                 label = "No, play together",
-                tag = "declineDefend",
+                tag = "defend:decline",
                 enabled = !acted,
                 onClick = {
                     acted = true
@@ -182,7 +182,7 @@ private fun DefendAlonePanel(hand: HandParams, onAction: (EuchreAction) -> Unit)
             )
             FeltActionButton(
                 label = "Defend alone",
-                tag = "defendAlone",
+                tag = "defend:alone",
                 enabled = !acted,
                 emphasized = true,
                 onClick = {
