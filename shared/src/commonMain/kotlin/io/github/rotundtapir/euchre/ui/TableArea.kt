@@ -123,22 +123,19 @@ private fun TeamScore(label: String, view: EuchrePlayerView, team: Int) {
 /**
  * The one-line summary of where the hand stands: which suit is on offer during the auction, and
  * once trump is made, who made it and whether they are playing alone.
+ *
+ * [upcardRevealed] is false while the deal is still running. The engine knows the turn card the
+ * moment it deals, but the player has not been shown it yet — naming its suit here would announce
+ * the card before it is turned over.
  */
 @Composable
-fun TrumpLine(view: EuchrePlayerView, botNames: Map<Seat, String>, modifier: Modifier = Modifier) {
-    val makers = view.makers
-    val upcardName = view.upcardSuit?.symbol ?: view.upcard?.label ?: ""
-    val text = when {
-        makers != null -> buildString {
-            append("Trump: ${makers.trump.symbol} · maker: ${seatLabel(view.seat, botNames, makers.maker)}")
-            if (makers.alone) append(" (alone)")
-            makers.loneDefender?.let { append(" · ${seatLabel(view.seat, botNames, it)} defends alone") }
-        }
-        view.phase == EuchrePhase.BIDDING_ROUND_2 -> "Bidding — $upcardName turned down"
-        view.phase == EuchrePhase.BIDDING_ROUND_1 || view.phase == EuchrePhase.FARMERS ->
-            "Bidding — $upcardName turned up"
-        else -> ""
-    }
+fun TrumpLine(
+    view: EuchrePlayerView,
+    botNames: Map<Seat, String>,
+    upcardRevealed: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val text = trumpLineText(view, botNames, upcardRevealed)
     if (text.isBlank()) {
         // Keep the row's height stable between phases so the felt below never jumps.
         Text("", modifier = modifier)
@@ -152,6 +149,30 @@ fun TrumpLine(view: EuchrePlayerView, botNames: Map<Seat, String>, modifier: Mod
         ) {
             SuitText(text, modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp))
         }
+    }
+}
+
+/** What the trump line says; pure, so the reveal rule is unit-testable. */
+internal fun trumpLineText(
+    view: EuchrePlayerView,
+    botNames: Map<Seat, String>,
+    upcardRevealed: Boolean,
+): String {
+    val makers = view.makers
+    if (makers != null) {
+        return buildString {
+            append("Trump: ${makers.trump.symbol} · maker: ${seatLabel(view.seat, botNames, makers.maker)}")
+            if (makers.alone) append(" (alone)")
+            makers.loneDefender?.let { append(" · ${seatLabel(view.seat, botNames, it)} defends alone") }
+        }
+    }
+    // Nothing to say about a card the player has not seen yet; the felt says "Dealing…" meanwhile.
+    if (!upcardRevealed) return ""
+    val upcardName = view.upcardSuit?.symbol ?: view.upcard?.label ?: ""
+    return when (view.phase) {
+        EuchrePhase.BIDDING_ROUND_2 -> "Bidding — $upcardName turned down"
+        EuchrePhase.BIDDING_ROUND_1, EuchrePhase.FARMERS -> "Bidding — $upcardName turned up"
+        else -> ""
     }
 }
 

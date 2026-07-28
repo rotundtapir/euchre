@@ -124,7 +124,8 @@ fun GameScreen(
                     onOpenSettings = { showSettings = true },
                     onMenu = { showLeaveConfirm = true },
                 )
-                TrumpLine(view, botNames)
+                // The turn card is only public once the deal has actually turned it over.
+                TrumpLine(view, botNames, upcardRevealed = !dealState.dealing)
                 Spacer(Modifier.height(12.dp))
                 OpponentsRow(view, botNames, dealState)
                 TrickArea(
