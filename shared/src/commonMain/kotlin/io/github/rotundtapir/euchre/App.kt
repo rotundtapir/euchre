@@ -136,10 +136,14 @@ fun EuchreApp(
                             lesson = lesson,
                             stepIndex = lessonStepIndex,
                             onAdvance = { lessonStepIndex++ },
+                            // Finishing a lesson lands back on the picker rather than Home: the
+                            // likeliest next thing a player wants is another lesson, and the
+                            // picker is also where the tick they just earned shows up.
                             onFinish = {
                                 scope.launch { settings.setLessonDone(lesson.id, true) }
                                 activeLessonId = null
                                 appScreen = AppScreen.HOME.name
+                                showLessonPicker = true
                             },
                         )
                     }

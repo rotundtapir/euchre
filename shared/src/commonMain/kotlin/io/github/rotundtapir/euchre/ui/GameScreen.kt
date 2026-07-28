@@ -240,7 +240,7 @@ fun GameScreen(
         TutorialPagesDialog(
             pages = tutorial.lesson.epilogue + TutorialPage("Lesson complete", tutorial.lesson.completion),
             nextTag = "tutorialEpilogueNext",
-            finishLabel = "Finish",
+            finishLabel = "More lessons",
             finishTag = "tutorialCompleteContinue",
             onFinish = tutorial.onFinish,
             lastPageTag = "tutorialComplete",

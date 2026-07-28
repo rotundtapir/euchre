@@ -53,11 +53,16 @@ class TutorialFlowTest : EuchreUiTest() {
         rule.onNodeWithTag("tutorialComplete").assertIsDisplayed()
         rule.onNodeWithTag("tutorialCompleteContinue").performClick()
 
-        // Home again, with the lesson ticked off and the picker pointing at the next one.
-        rule.waitUntil(STEP_TIMEOUT_MS) { textExists("Play with bots") }
-        rule.onNodeWithTag("walkthroughButton").performClick()
+        // Finishing lands on the lesson picker, not Home: another lesson is the likeliest next
+        // thing, and the tick just earned is on show. Picking one from here must still work.
         rule.waitUntil(STEP_TIMEOUT_MS) { nodesWithTag("lessonPicker").isNotEmpty() }
         rule.waitUntil(STEP_TIMEOUT_MS) { textExists("✓") }
+        rule.onNodeWithTag("lesson:bidding").performScrollTo().performClick()
+        rule.waitUntil(STEP_TIMEOUT_MS) { nodesWithTag("tutorialPrimerNext").isNotEmpty() }
+        rule.onNodeWithText("Back").performClick()
+
+        // And the picker still closes to Home.
+        rule.waitUntil(STEP_TIMEOUT_MS) { nodesWithTag("lessonPicker").isNotEmpty() }
         rule.onNodeWithTag("lessonPickerClose").performScrollTo().performClick()
         rule.onNodeWithText("Play with bots").assertIsDisplayed()
     }
