@@ -38,6 +38,8 @@ import io.github.rotundtapir.cardkit.monetization.Monetization
 import io.github.rotundtapir.cardkit.ui.SettingsIcon
 import io.github.rotundtapir.cardkit.ui.felt.CardSurfaceWhite
 import io.github.rotundtapir.cardkit.ui.felt.InkOnCardSurface
+import io.github.rotundtapir.cardkit.ui.felt.OnBackgroundIconButton
+import io.github.rotundtapir.cardkit.ui.felt.OnBackgroundOutlinedButton
 import io.github.rotundtapir.cardkit.ui.settings.BotSkill
 import io.github.rotundtapir.cardkit.ui.settings.SectionHeader
 import io.github.rotundtapir.cardkit.ui.settings.SwitchRow
@@ -60,16 +62,12 @@ fun HomeScreen(
         contentColor = MaterialTheme.colorScheme.onBackground,
     ) {
         Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-            IconButton(
+            OnBackgroundIconButton(
+                imageVector = SettingsIcon,
+                contentDescription = "Settings",
                 onClick = { showSettings = true },
                 modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).testTag("settingsButton"),
-            ) {
-                Icon(
-                    imageVector = SettingsIcon,
-                    contentDescription = "Settings",
-                    tint = MaterialTheme.colorScheme.onBackground,
-                )
-            }
+            )
             Column(
                 modifier = Modifier.fillMaxSize().padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -84,12 +82,8 @@ fun HomeScreen(
                     modifier = Modifier.testTag("playWithBotsButton"),
                 ) { Text("Play with bots", fontWeight = FontWeight.Bold) }
                 Spacer(Modifier.height(16.dp))
-                OutlinedButton(
+                OnBackgroundOutlinedButton(
                     onClick = onHowToPlay,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onBackground,
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)),
                     modifier = Modifier.testTag("walkthroughButton"),
                 ) { Text("How to play") }
             }

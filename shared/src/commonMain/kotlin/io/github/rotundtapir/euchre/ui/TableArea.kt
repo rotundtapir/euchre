@@ -46,11 +46,14 @@ import io.github.rotundtapir.cardkit.ui.PlayingCard
 import io.github.rotundtapir.cardkit.ui.SettingsIcon
 import io.github.rotundtapir.cardkit.ui.SuitText
 import io.github.rotundtapir.cardkit.ui.cardFaceShape
+import io.github.rotundtapir.cardkit.ui.clickableWhen
 import io.github.rotundtapir.cardkit.ui.deal.DealAnimationState
 import io.github.rotundtapir.cardkit.ui.deal.OpponentPile
 import io.github.rotundtapir.cardkit.ui.deal.ShufflingDeck
 import io.github.rotundtapir.cardkit.ui.deal.dealAnchor
 import io.github.rotundtapir.cardkit.ui.felt.CardSurfaceWhite
+import io.github.rotundtapir.cardkit.ui.felt.NeutralInkOnCardSurface
+import io.github.rotundtapir.cardkit.ui.felt.OnBackgroundIconButton
 import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
 import io.github.rotundtapir.cardkit.ui.tutorial.TutorialAnchors
 import io.github.rotundtapir.cardkit.ui.tutorial.tutorialTarget
@@ -84,13 +87,12 @@ fun ScoreBar(
         TeamScore("Us", view, myTeam)
         TeamScore("Them", view, view.opponentTeam)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onOpenSettings, modifier = Modifier.testTag("gameSettingsButton")) {
-                Icon(
-                    imageVector = SettingsIcon,
-                    contentDescription = "Settings",
-                    tint = MaterialTheme.colorScheme.onBackground,
-                )
-            }
+            OnBackgroundIconButton(
+                imageVector = SettingsIcon,
+                contentDescription = "Settings",
+                onClick = onOpenSettings,
+                modifier = Modifier.testTag("gameSettingsButton"),
+            )
             TextButton(
                 onClick = onMenu,
                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onBackground),
@@ -141,7 +143,7 @@ fun TrumpLine(view: EuchrePlayerView, botNames: Map<Seat, String>, modifier: Mod
         Surface(
             shape = RoundedCornerShape(50),
             color = CardSurfaceWhite,
-            contentColor = Color(0xFF1B1B1B),
+            contentColor = NeutralInkOnCardSurface,
             modifier = modifier,
         ) {
             SuitText(text, modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp))
@@ -258,7 +260,7 @@ fun TrickArea(
             .padding(vertical = 12.dp)
             .background(Color(0x22000000), RoundedCornerShape(16.dp))
             .tutorialTarget(anchors, TRICK_ANCHOR)
-            .tappableWhen(holdingTrick) { onTrickAcknowledge(view.handNumber, view.trickNumber) },
+            .clickableWhen(holdingTrick) { onTrickAcknowledge(view.handNumber, view.trickNumber) },
         contentAlignment = Alignment.Center,
     ) {
         // Size the cards from the felt itself so a full trick (with its name labels) always fits,

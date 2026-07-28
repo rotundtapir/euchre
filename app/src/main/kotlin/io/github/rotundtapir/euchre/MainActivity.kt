@@ -13,6 +13,7 @@ import io.github.rotundtapir.cardkit.ui.AppPlatform
 import io.github.rotundtapir.cardkit.ui.CardArtWarmup
 import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
 import io.github.rotundtapir.cardkit.ui.settings.BotSkill
+import io.github.rotundtapir.euchre.engine.euchreDeck
 import io.github.rotundtapir.cardkit.ui.theme.CardkitTheme
 
 /**
@@ -87,9 +88,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             CardkitTheme {
                 Box {
-                    // Card bitmaps are decoded lazily on first use; warm them all so the first deal
-                    // never shows blank backs. Draws nothing and takes no input.
-                    CardArtWarmup()
+                    // Card bitmaps are decoded lazily on first use; warm them so the first deal
+                    // never shows blank backs. Draws nothing and takes no input. Only the cards
+                    // Euchre can deal — Benny's Joker included, since the warmup runs before a game
+                    // exists and the house rule is not yet known.
+                    CardArtWarmup(cards = euchreDeck(benny = true))
                     EuchreApp(
                         monetization = monetization,
                         settings = remember { androidSettingsRepository(applicationContext) },

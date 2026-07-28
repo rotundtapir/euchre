@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception
 package io.github.rotundtapir.euchre.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -40,10 +39,6 @@ fun seatLabel(humanSeat: Seat, botNames: Map<Seat, String>, seat: Seat): String 
 fun teamColor(view: EuchrePlayerView, seat: Seat): Color =
     if (view.isMyTeam(seat)) PartnerHighlight else OpponentTeamColors.first()
 
-/** Clickable only while [enabled] — a factory, since conditional `.then` chains crash AGP lint. */
-fun Modifier.tappableWhen(enabled: Boolean, onTap: () -> Unit): Modifier =
-    if (enabled) this.clickable(onClick = onTap) else this
-
 /**
  * The trick evaluator a UI should rank cards with. The Joker is admitted as the highest trump
  * unconditionally: with the Benny house rule off it is not in the deck at all, so the role can
@@ -58,6 +53,17 @@ private fun displayEvaluator(trump: Suit?): TrickEvaluator =
  * remaining suits in alternating colours, each strongest first. Bower-aware — the left bower sorts
  * into the trump block, not its printed suit, which is the whole point of offering the toggle.
  */
+fun sortedForDisplay(hand: List<Card>, trump: Suit?): List<Card> {
+    val eval = displayEvaluator(trump)
+    val suitOrder = listOf(Suit.SPADES, Suit.HEARTS, Suit.CLUBS, Suit.DIAMONDS)
+    return hand.sortedWith(
+        compareBy(
+            { card -> if (eval.isTrump(card)) 0 else 1 + suitOrder.indexOf(eval.effectiveSuit(card)) },
+            { card -> -eval.strength(card, eval.effectiveSuit(card)) },
+        ),
+    )
+}
+
 /**
  * The human's hand as it should be drawn, memoized: the sort's inputs only change on a new hand, a
  * card played, or trump being made, but the enclosing screen recomposes on every engine transition.
@@ -74,17 +80,6 @@ fun rememberDisplayHand(view: EuchrePlayerView, sorted: Boolean): List<Card> =
  */
 fun EuchrePlayerView.hasClosedTrick(): Boolean =
     phase == EuchrePhase.PLAY && currentTrick.isEmpty() && lastTrick != null && !isMyTurn
-
-fun sortedForDisplay(hand: List<Card>, trump: Suit?): List<Card> {
-    val eval = displayEvaluator(trump)
-    val suitOrder = listOf(Suit.SPADES, Suit.HEARTS, Suit.CLUBS, Suit.DIAMONDS)
-    return hand.sortedWith(
-        compareBy(
-            { card -> if (eval.isTrump(card)) 0 else 1 + suitOrder.indexOf(eval.effectiveSuit(card)) },
-            { card -> -eval.strength(card, eval.effectiveSuit(card)) },
-        ),
-    )
-}
 
 /**
  * Euchre's deal, as the animation's packet schedule.

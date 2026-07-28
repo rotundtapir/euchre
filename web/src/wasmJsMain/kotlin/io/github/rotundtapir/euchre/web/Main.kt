@@ -23,6 +23,7 @@ import io.github.rotundtapir.cardkit.ui.theme.CardkitTheme
 import io.github.rotundtapir.euchre.EuchreApp
 import io.github.rotundtapir.euchre.KeyValueSettingsRepository
 import io.github.rotundtapir.euchre.ProjectLinks
+import io.github.rotundtapir.euchre.engine.euchreDeck
 import io.github.rotundtapir.euchre.web.generated.resources.Res
 import io.github.rotundtapir.euchre.web.generated.resources.symbol_fallback
 import kotlin.random.Random
@@ -86,9 +87,11 @@ fun main() {
         }
         CardkitTheme {
             Box {
-                // Web image loading is async: warm every card bitmap into the resource cache at
+                // Web image loading is async: warm the card bitmaps into the resource cache at
                 // startup so the first deal doesn't show blank backs/faces while PNGs stream in.
-                CardArtWarmup()
+                // Only the cards Euchre can deal — Benny's Joker included, since the warmup runs
+                // before a game exists — which is ~780 KB of PNGs not fetched before that deal.
+                CardArtWarmup(cards = euchreDeck(benny = true))
                 EuchreApp(
                     monetization = remember { BrowserMonetization(ProjectLinks.DONATION_URL) },
                     settings = remember {
