@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import io.github.rotundtapir.cardkit.core.Card
 import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.cardkit.core.TrickPlay
-import io.github.rotundtapir.cardkit.core.teamOf
 import io.github.rotundtapir.cardkit.ui.CardAspectRatio
 import io.github.rotundtapir.cardkit.ui.CardBack
 import io.github.rotundtapir.cardkit.ui.PlayingCard
@@ -59,9 +58,10 @@ import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
 import io.github.rotundtapir.euchre.engine.PLAYER_COUNT
-import io.github.rotundtapir.euchre.engine.TEAM_COUNT
 import io.github.rotundtapir.euchre.engine.TRICKS_PER_HAND
 import io.github.rotundtapir.euchre.engine.WINNING_SCORE
+import io.github.rotundtapir.euchre.engine.dealOrder
+import io.github.rotundtapir.euchre.engine.teamTricks
 import io.github.rotundtapir.euchre.ui.tutorial.TRICK_ANCHOR
 
 /**
@@ -82,7 +82,7 @@ fun ScoreBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TeamScore("Us", view, myTeam)
-        TeamScore("Them", view, 1 - myTeam)
+        TeamScore("Them", view, view.opponentTeam)
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onOpenSettings, modifier = Modifier.testTag("gameSettingsButton")) {
                 Icon(
@@ -103,7 +103,7 @@ fun ScoreBar(
 /** One side of the score bar: match points over the tricks that side has taken this hand. */
 @Composable
 private fun TeamScore(label: String, view: EuchrePlayerView, team: Int) {
-    val tricks = view.tricksWon.entries.filter { teamOf(it.key, TEAM_COUNT) == team }.sumOf { it.value }
+    val tricks = teamTricks(view.tricksWon, team)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text("$label: ${view.scores[team] ?: 0}/$WINNING_SCORE", fontWeight = FontWeight.Bold)
         Text(
@@ -183,7 +183,7 @@ private fun OpponentStatus(
 ) {
     // A seat is only "sitting out" once the hand's active set is known; before then everyone plays.
     val sittingOut = view.activeSeats.isNotEmpty() && seat !in view.activeSeats
-    val isPartner = teamOf(seat, TEAM_COUNT) == view.myTeam
+    val isPartner = view.isMyTeam(seat)
     val nameColor = teamColor(view, seat)
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         Text(
@@ -243,18 +243,15 @@ fun TrickArea(
     modifier: Modifier = Modifier,
     holdTricks: Boolean = false,
     onTrickAcknowledge: (Int, Int) -> Unit = { _, _ -> },
-    // A tutorial lesson forces the hold on regardless of the setting, so the guidance bubble can
-    // explain every completed trick, and anchors itself to the felt while it does.
-    forceHold: Boolean = false,
+    // The lesson bubble gives its own "tap the trick" instruction, so the felt's hint would just
+    // say it twice.
+    hideTapHint: Boolean = false,
     anchors: TutorialAnchors? = null,
 ) {
-    val holdingTrick = (holdTricks || forceHold) &&
+    val holdingTrick = holdTricks &&
         animationSpeed != AnimationSpeed.OFF &&
         !dealState.dealing &&
-        view.phase == EuchrePhase.PLAY &&
-        view.currentTrick.isEmpty() &&
-        view.lastTrick != null &&
-        !view.isMyTurn
+        view.hasClosedTrick()
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
@@ -272,10 +269,8 @@ fun TrickArea(
         val cardWidth = minOf(byWidth, byHeight).coerceIn(56.dp, 96.dp)
         when {
             dealState.dealing -> DealFelt(dealState, cardWidth)
-            // During a lesson the bubble carries the "tap the trick" instruction, so the felt's
-            // own hint would just say it twice.
             view.phase == EuchrePhase.PLAY ->
-                PlayFelt(view, botNames, cardWidth, holdingTrick && !forceHold)
+                PlayFelt(view, botNames, cardWidth, holdingTrick && !hideTapHint)
             else -> UpCardSpot(view, dealState, cardWidth)
         }
     }
@@ -395,7 +390,7 @@ private fun TrickSlot(
     card: Card?,
     cardWidth: Dp,
 ) {
-    val isMyTeam = teamOf(seat, TEAM_COUNT) == view.myTeam
+    val isMyTeam = view.isMyTeam(seat)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         if (card != null) {
             PlayingCard(card, width = cardWidth)

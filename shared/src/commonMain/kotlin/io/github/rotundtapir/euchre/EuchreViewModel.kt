@@ -3,13 +3,11 @@ package io.github.rotundtapir.euchre
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.rotundtapir.cardkit.core.Card
 import io.github.rotundtapir.cardkit.core.ChannelPlayer
 import io.github.rotundtapir.cardkit.core.GameDriver
 import io.github.rotundtapir.cardkit.core.Player
 import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.cardkit.core.StrategyPlayer
-import io.github.rotundtapir.cardkit.core.Suit
 import io.github.rotundtapir.cardkit.ui.deal.dealTimings
 import io.github.rotundtapir.cardkit.ui.pacing.PacingGates
 import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
@@ -153,19 +151,14 @@ class EuchreViewModel : ViewModel() {
 
     // --- Human actions ---------------------------------------------------------------------------
 
-    fun passBid() = submit(EuchreAction.Pass)
-    fun orderUp(alone: Boolean = false) = submit(EuchreAction.OrderUp(alone))
-    fun callTrump(suit: Suit, alone: Boolean = false) = submit(EuchreAction.CallTrump(suit, alone))
-    fun discard(card: Card) = submit(EuchreAction.DealerDiscard(card))
-    fun defendAlone() = submit(EuchreAction.DefendAlone)
-    fun declineDefend() = submit(EuchreAction.DeclineDefend)
-    fun callFarmers(discards: List<Card>) = submit(EuchreAction.CallFarmers(discards))
-    fun declineFarmers() = submit(EuchreAction.DeclineFarmers)
-    fun playCard(card: Card) = submit(EuchreAction.PlayCard(card))
-
-    // trySubmit drops the action unless the engine is actually waiting, so a double-tap (or a tap
-    // racing a state change) can't queue an action that would answer a *later* prompt.
-    private fun submit(action: EuchreAction) {
+    /**
+     * Offers the human seat's [action] to the engine. The UI builds the typed action already, so
+     * this takes it whole rather than restating the action vocabulary as one method per prompt.
+     *
+     * trySubmit drops the action unless the engine is actually waiting, so a double-tap (or a tap
+     * racing a state change) can't queue an action that would answer a *later* prompt.
+     */
+    fun submitHumanAction(action: EuchreAction) {
         human.trySubmit(action)
     }
 

@@ -3,8 +3,8 @@ package io.github.rotundtapir.euchre.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,14 +29,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.cardkit.ui.SuitText
 import io.github.rotundtapir.euchre.engine.EuchreHandResult
+import io.github.rotundtapir.euchre.engine.EuchreOutcome
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
 import io.github.rotundtapir.euchre.engine.TRICKS_PER_HAND
 import io.github.rotundtapir.euchre.engine.WINNING_SCORE
@@ -47,12 +50,13 @@ import io.github.rotundtapir.euchre.engine.WINNING_SCORE
  */
 fun handResultHeadline(result: EuchreHandResult): String {
     val points = result.teamDeltas.values.firstOrNull() ?: 0
-    val reason = when {
-        result.made && result.makerTricks == TRICKS_PER_HAND && result.makers.alone -> "alone march"
-        result.made && result.makerTricks == TRICKS_PER_HAND -> "march!"
-        result.made -> "made it"
-        result.makers.loneDefender != null -> "euchred alone!"
-        else -> "euchred!"
+    // The engine already classified the hand to score it; this only names its five outcomes.
+    val reason = when (result.outcome) {
+        EuchreOutcome.LONE_MARCH -> "alone march"
+        EuchreOutcome.MARCH -> "march!"
+        EuchreOutcome.MADE -> "made it"
+        EuchreOutcome.EUCHRED_ALONE -> "euchred alone!"
+        EuchreOutcome.EUCHRED -> "euchred!"
     }
     return "+$points — $reason"
 }
@@ -65,6 +69,7 @@ fun handResultHeadline(result: EuchreHandResult): String {
 fun HandResultDialog(
     view: EuchrePlayerView,
     botNames: Map<Seat, String>,
+    modifier: Modifier = Modifier,
     onDismiss: () -> Unit = {},
 ) {
     val result = view.lastHandResult ?: return
@@ -79,57 +84,85 @@ fun HandResultDialog(
     }
 
     val makers = result.makers
-    val wentOurWay = (makers.makerTeam == view.myTeam) == result.made
-    val headerColor = if (wentOurWay) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-    val onHeaderColor = if (wentOurWay) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onError
     val makerName = seatLabel(view.seat, botNames, makers.maker)
 
-    Dialog(onDismissRequest = dismiss) {
+    BannerDialog(
+        good = (makers.makerTeam == view.myTeam) == result.made,
+        onDismissRequest = dismiss,
+        bannerPadding = 12.dp,
+        modifier = modifier,
+        banner = { onHeaderColor ->
+            Text(
+                handResultHeadline(result),
+                style = MaterialTheme.typography.titleLarge,
+                color = onHeaderColor,
+                textAlign = TextAlign.Center,
+            )
+        },
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            SuitText(
+                "$makerName made ${makers.trump.symbol} trump" +
+                    if (makers.alone) " and went alone" else "",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                "The makers took ${result.makerTricks} of $TRICKS_PER_HAND tricks " +
+                    "(three are needed).",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(4.dp))
+            ScoreDeltaRow("Us", result.teamDeltas[view.myTeam] ?: 0, view.scores[view.myTeam] ?: 0)
+            ScoreDeltaRow(
+                "Them",
+                result.teamDeltas[view.opponentTeam] ?: 0,
+                view.scores[view.opponentTeam] ?: 0,
+            )
+            Spacer(Modifier.height(4.dp))
+            Button(
+                onClick = dismiss,
+                modifier = Modifier.fillMaxWidth().testTag("handResultContinue"),
+            ) { Text("Continue") }
+        }
+    }
+}
+
+/**
+ * The end-of-hand and end-of-game dialogs' shared shape: a rounded card whose top strip is tinted
+ * by whether the news is good for the local player, over a body the caller fills. [banner] receives
+ * the content colour to draw on that strip.
+ */
+@Composable
+private fun BannerDialog(
+    good: Boolean,
+    onDismissRequest: () -> Unit,
+    bannerPadding: Dp,
+    banner: @Composable ColumnScope.(Color) -> Unit,
+    modifier: Modifier = Modifier,
+    body: @Composable ColumnScope.() -> Unit,
+) {
+    val headerColor = if (good) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+    val onHeaderColor = if (good) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onError
+    Dialog(onDismissRequest = onDismissRequest) {
         Surface(
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface,
             tonalElevation = 6.dp,
+            modifier = modifier,
         ) {
             Column {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(headerColor)
-                        .padding(horizontal = 24.dp, vertical = 12.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        handResultHeadline(result),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = onHeaderColor,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-                Column(
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    SuitText(
-                        "$makerName made ${makers.trump.symbol} trump" +
-                            if (makers.alone) " and went alone" else "",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        "The makers took ${result.makerTricks} of $TRICKS_PER_HAND tricks " +
-                            "(three are needed).",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    val myDelta = result.teamDeltas[view.myTeam] ?: 0
-                    ScoreDeltaRow("Us", myDelta, view.scores[view.myTeam] ?: 0)
-                    ScoreDeltaRow("Them", result.teamDeltas[1 - view.myTeam] ?: 0, view.scores[1 - view.myTeam] ?: 0)
-                    Spacer(Modifier.height(4.dp))
-                    Button(
-                        onClick = dismiss,
-                        modifier = Modifier.fillMaxWidth().testTag("handResultContinue"),
-                    ) { Text("Continue") }
-                }
+                        .padding(horizontal = 24.dp, vertical = bannerPadding),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) { banner(onHeaderColor) }
+                body()
             }
         }
     }
@@ -165,59 +198,48 @@ fun GameOverDialog(
     view: EuchrePlayerView,
     botNames: Map<Seat, String>,
     onBackToMenu: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val youWon = view.winner == view.myTeam
-    val headerColor = if (youWon) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-    val onHeaderColor = if (youWon) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onError
     val handCount = view.handResults.size
 
-    Dialog(onDismissRequest = {}) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            tonalElevation = 6.dp,
-        ) {
-            Column {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(headerColor)
-                        .padding(horizontal = 24.dp, vertical = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        if (youWon) "You win!" else "You lose",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = onHeaderColor,
-                    )
-                    Text(
-                        "${view.scores[view.myTeam] ?: 0} – ${view.scores[1 - view.myTeam] ?: 0} " +
-                            "after $handCount ${if (handCount == 1) "hand" else "hands"}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = onHeaderColor,
-                    )
-                }
-                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-                    ScoreSheetHeader()
-                    Spacer(Modifier.height(4.dp))
-                    Column(
-                        modifier = Modifier
-                            .heightIn(max = 240.dp)
-                            .verticalScroll(rememberScrollState()),
-                    ) {
-                        view.handResults.forEachIndexed { i, r ->
-                            ScoreSheetRow(view, botNames, i, r)
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Button(
-                        onClick = onBackToMenu,
-                        modifier = Modifier.fillMaxWidth().testTag("backToMenu"),
-                    ) { Text("Back to menu") }
+    BannerDialog(
+        good = youWon,
+        onDismissRequest = {},
+        bannerPadding = 16.dp,
+        modifier = modifier,
+        banner = { onHeaderColor ->
+            Text(
+                if (youWon) "You win!" else "You lose",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = onHeaderColor,
+            )
+            Text(
+                "${view.scores[view.myTeam] ?: 0} – ${view.scores[view.opponentTeam] ?: 0} " +
+                    "after $handCount ${if (handCount == 1) "hand" else "hands"}",
+                style = MaterialTheme.typography.labelMedium,
+                color = onHeaderColor,
+            )
+        },
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+            ScoreSheetHeader()
+            Spacer(Modifier.height(4.dp))
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 240.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                view.handResults.forEachIndexed { i, r ->
+                    ScoreSheetRow(view, botNames, i, r)
                 }
             }
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = onBackToMenu,
+                modifier = Modifier.fillMaxWidth().testTag("backToMenu"),
+            ) { Text("Back to menu") }
         }
     }
 }
@@ -280,7 +302,7 @@ private fun ScoreSheetRow(
             fontWeight = FontWeight.Bold,
             color = if (result.made) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
         )
-        listOf(view.myTeam, 1 - view.myTeam).forEach { team ->
+        listOf(view.myTeam, view.opponentTeam).forEach { team ->
             Text(
                 "+${result.teamDeltas[team] ?: 0}",
                 style = MaterialTheme.typography.bodySmall,

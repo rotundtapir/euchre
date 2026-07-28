@@ -101,8 +101,8 @@ fun main() {
                         flavor = AppDistribution.WEB,
                         commit = AppBuildInfo.COMMIT,
                     ),
+                    // A ?seed= parameter pins every new game to it, which is what the e2e suite wants.
                     nextSeed = { seedOverride ?: Random.nextLong() },
-                    seedOverride = seedOverride,
                     animationSpeedOverride = animationSpeedOverride,
                     soundVolumeOverride = soundVolumeOverride,
                     botSkillOverride = botSkillOverride,

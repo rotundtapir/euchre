@@ -33,6 +33,7 @@ import io.github.rotundtapir.cardkit.ui.settings.SliderRow
 import io.github.rotundtapir.cardkit.ui.settings.SupportSection
 import io.github.rotundtapir.cardkit.ui.settings.SwitchRow
 import io.github.rotundtapir.euchre.EuchreHouseRules
+import io.github.rotundtapir.euchre.SettingsRepository
 
 /**
  * The settings dialog, opened from the cog on the home screen or in a game. With [inGame] set, the
@@ -160,11 +161,16 @@ private fun HouseRuleSection(settings: SettingsControls, inGame: Boolean) {
     }
 }
 
-/** One house-rule switch: its label, its test tag, and how it reads and writes the rule set. */
+/**
+ * One house-rule switch: its label, its test tag, how it reads and writes the rule set, and how it
+ * is persisted. All four arms together, so a new house rule is one entry here rather than an edit
+ * in the dialog, the setup screen and the write-through path.
+ */
 internal class HouseRuleRow(
     val label: String,
     val tag: String,
     val read: (EuchreHouseRules) -> Boolean,
+    val persist: suspend SettingsRepository.(Boolean) -> Unit,
     val write: (EuchreHouseRules, Boolean) -> EuchreHouseRules,
 )
 
@@ -173,12 +179,30 @@ internal class HouseRuleRow(
  * same switches (with their own tag prefixes) from one list instead of two hand-kept copies.
  */
 internal val HOUSE_RULE_ROWS = listOf(
-    HouseRuleRow("Stick the dealer", "stickTheDealer", { it.stickTheDealer }) { r, v ->
-        r.copy(stickTheDealer = v)
-    },
-    HouseRuleRow("Defend alone", "defendAlone", { it.defendAlone }) { r, v -> r.copy(defendAlone = v) },
-    HouseRuleRow("Benny (joker)", "bennyEnabled", { it.bennyEnabled }) { r, v -> r.copy(bennyEnabled = v) },
-    HouseRuleRow("Farmer's hand", "farmersHand", { it.farmersHand }) { r, v -> r.copy(farmersHand = v) },
+    HouseRuleRow(
+        "Stick the dealer",
+        "stickTheDealer",
+        { it.stickTheDealer },
+        SettingsRepository::setStickTheDealer,
+    ) { r, v -> r.copy(stickTheDealer = v) },
+    HouseRuleRow(
+        "Defend alone",
+        "defendAlone",
+        { it.defendAlone },
+        SettingsRepository::setDefendAlone,
+    ) { r, v -> r.copy(defendAlone = v) },
+    HouseRuleRow(
+        "Benny (joker)",
+        "bennyEnabled",
+        { it.bennyEnabled },
+        SettingsRepository::setBennyEnabled,
+    ) { r, v -> r.copy(bennyEnabled = v) },
+    HouseRuleRow(
+        "Farmer's hand",
+        "farmersHand",
+        { it.farmersHand },
+        SettingsRepository::setFarmersHand,
+    ) { r, v -> r.copy(farmersHand = v) },
 )
 
 /** Grey a row's label to match its disabled switch; inherit the ambient colour otherwise. */

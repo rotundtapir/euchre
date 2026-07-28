@@ -48,13 +48,11 @@ fun HomeScreen(
     monetization: Monetization,
     settings: SettingsControls,
     onPlayWithBots: () -> Unit,
+    /** Where "How to play" goes: the interactive tutorial's lesson picker. */
+    onHowToPlay: () -> Unit,
     modifier: Modifier = Modifier,
-    // Where "How to play" goes. Null (the default) opens the written rules; the interactive
-    // tutorial takes this over when its four lessons land, without moving the button.
-    onHowToPlay: (() -> Unit)? = null,
 ) {
     var showSettings by remember { mutableStateOf(false) }
-    var showRules by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -87,7 +85,7 @@ fun HomeScreen(
                 ) { Text("Play with bots", fontWeight = FontWeight.Bold) }
                 Spacer(Modifier.height(16.dp))
                 OutlinedButton(
-                    onClick = { if (onHowToPlay != null) onHowToPlay() else showRules = true },
+                    onClick = onHowToPlay,
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = MaterialTheme.colorScheme.onBackground,
                     ),
@@ -98,9 +96,6 @@ fun HomeScreen(
         }
     }
 
-    if (showRules) {
-        RulesDialog(houseRules = settings.houseRules, onDismiss = { showRules = false })
-    }
     if (showSettings) {
         SettingsDialog(
             settings = settings,

@@ -77,7 +77,7 @@ fun ActionArea(
             !view.isMyTurn -> {
                 Text(view.toAct?.let { "Waiting for ${seatLabel(view.seat, botNames, it)}…" } ?: "")
                 Spacer(Modifier.height(4.dp))
-                HumanHand(hand, playable = { false }, dimUnplayable = false, onClick = {})
+                StaticHand(hand)
             }
             view.phase == EuchrePhase.FARMERS -> FarmersHandPrompt(hand, onAction)
             view.phase == EuchrePhase.DEALER_DISCARD -> DealerDiscardPanel(hand, onAction)
@@ -115,8 +115,7 @@ private fun BiddingRound1Panel(view: EuchrePlayerView, hand: HandParams, onActio
                 enabled = passEnabled,
                 onClick = {
                     acted = true
-                    onAction(EuchreAction.Pass)
-                    hand.tutorial?.script?.onAdvance?.invoke()
+                    hand.submit(onAction, EuchreAction.Pass)
                 },
                 modifier = hand.anchorFor(step?.orderUp == false),
             )
@@ -127,14 +126,13 @@ private fun BiddingRound1Panel(view: EuchrePlayerView, hand: HandParams, onActio
                 emphasized = true,
                 onClick = {
                     acted = true
-                    onAction(EuchreAction.OrderUp(alone))
-                    hand.tutorial?.script?.onAdvance?.invoke()
+                    hand.submit(onAction, EuchreAction.OrderUp(alone))
                 },
                 modifier = hand.anchorFor(step?.orderUp == true),
             )
         }
         AloneToggle(alone) { alone = it }
-        HumanHand(hand, playable = { false }, dimUnplayable = false, onClick = {})
+        StaticHand(hand)
     }
 }
 
@@ -164,8 +162,7 @@ private fun BiddingRound2Panel(view: EuchrePlayerView, hand: HandParams, onActio
                     enabled = passEnabled,
                     onClick = {
                         acted = true
-                        onAction(EuchreAction.Pass)
-                        hand.tutorial?.script?.onAdvance?.invoke()
+                        hand.submit(onAction, EuchreAction.Pass)
                     },
                     modifier = hand.anchorFor(step != null && step.call == null),
                 )
@@ -180,15 +177,14 @@ private fun BiddingRound2Panel(view: EuchrePlayerView, hand: HandParams, onActio
                     emphasized = true,
                     onClick = {
                         acted = true
-                        onAction(EuchreAction.CallTrump(suit, alone))
-                        hand.tutorial?.script?.onAdvance?.invoke()
+                        hand.submit(onAction, EuchreAction.CallTrump(suit, alone))
                     },
                     modifier = hand.anchorFor(scripted),
                 )
             }
         }
         AloneToggle(alone) { alone = it }
-        HumanHand(hand, playable = { false }, dimUnplayable = false, onClick = {})
+        StaticHand(hand)
     }
 }
 
@@ -220,7 +216,7 @@ private fun DefendAlonePanel(hand: HandParams, onAction: (EuchreAction) -> Unit)
                 },
             )
         }
-        HumanHand(hand, playable = { false }, dimUnplayable = false, onClick = {})
+        StaticHand(hand)
     }
 }
 
@@ -234,10 +230,7 @@ private fun DealerDiscardPanel(hand: HandParams, onAction: (EuchreAction) -> Uni
         confirmLabel = "Discard",
         confirmTag = "discardButton",
         requiredCount = 1,
-        onConfirm = { cards ->
-            onAction(EuchreAction.DealerDiscard(cards.single()))
-            hand.tutorial?.script?.onAdvance?.invoke()
-        },
+        onConfirm = { cards -> hand.submit(onAction, EuchreAction.DealerDiscard(cards.single())) },
         selectable = if (hand.tutorial == null) null else setOfNotNull(step?.card),
     )
 }
@@ -282,10 +275,7 @@ private fun PlayPanel(hand: HandParams, onAction: (EuchreAction) -> Unit) {
         HumanHand(
             hand = hand,
             playable = { it in playable && (hand.tutorial == null || it == scripted) },
-            onClick = { card ->
-                onAction(EuchreAction.PlayCard(card))
-                hand.tutorial?.script?.onAdvance?.invoke()
-            },
+            onClick = { card -> hand.submit(onAction, EuchreAction.PlayCard(card)) },
         )
     }
 }
@@ -394,6 +384,15 @@ private data class HandParams(
     val tutorial: EuchreTutorialSession? = null,
     val anchors: TutorialAnchors? = null,
 ) {
+    /**
+     * Takes [action]: hands it to the engine and, during a lesson, advances the script. The two
+     * always go together — a panel that submits without advancing leaves the lesson stuck.
+     */
+    fun submit(onAction: (EuchreAction) -> Unit, action: EuchreAction) {
+        onAction(action)
+        tutorial?.script?.onAdvance?.invoke()
+    }
+
     /** Records the tutorial's "point here" anchor on this element when it is the scripted one. */
     fun anchorFor(scripted: Boolean): Modifier =
         Modifier.tutorialTarget(if (scripted) anchors else null, ACTION_ANCHOR)
@@ -415,6 +414,11 @@ const val HUMAN_HAND_TAG = "humanHand"
  * kind of near-miss that reads as interchangeable and is not.
  */
 const val HAND_CARD_TAG_PREFIX = "hand:"
+
+/** The fan with nothing to do: shown under a prompt that is not about the cards. */
+@Composable
+private fun StaticHand(hand: HandParams) =
+    HumanHand(hand, playable = { false }, dimUnplayable = false, onClick = {})
 
 /** The human's fan, with the sort toggle above it. */
 @Composable
@@ -442,13 +446,7 @@ private fun HumanHand(
                 style = MaterialTheme.typography.labelMedium,
             )
         }
-        // Memoized: this recomposes on every view emission, but the sort's inputs only change on a
-        // new hand, a play, or trump being made.
-        val cards = if (hand.sortHand) {
-            remember(view.hand, view.trump) { sortedForDisplay(view.hand, view.trump) }
-        } else {
-            view.hand
-        }
+        val cards = rememberDisplayHand(view, hand.sortHand)
         Box(
             modifier = Modifier
                 .fillMaxWidth()

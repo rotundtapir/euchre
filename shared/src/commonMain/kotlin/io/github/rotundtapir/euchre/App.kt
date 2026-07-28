@@ -19,9 +19,9 @@ import io.github.rotundtapir.cardkit.ui.LocalAppConfig
 import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
 import io.github.rotundtapir.cardkit.ui.settings.BotSkill
 import io.github.rotundtapir.cardkit.ui.tutorial.TutorialPagesDialog
-import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.ui.BotSetupScreen
 import io.github.rotundtapir.euchre.ui.GameScreen
+import io.github.rotundtapir.euchre.ui.HOUSE_RULE_ROWS
 import io.github.rotundtapir.euchre.ui.HomeScreen
 import io.github.rotundtapir.euchre.ui.RulesDialog
 import io.github.rotundtapir.euchre.ui.SettingsControls
@@ -52,8 +52,8 @@ fun EuchreApp(
     // factory, which is JVM-only and throws on wasm.
     vm: EuchreViewModel = viewModel { EuchreViewModel() },
     // Test overrides. In-memory only, never persisted: a shared link must not be able to change
-    // someone's saved settings.
-    seedOverride: Long? = null,
+    // someone's saved settings. (A pinned seed is one of these too, folded into [nextSeed] by the
+    // entry point — one seam for "where does a new game's seed come from", not two.)
     animationSpeedOverride: AnimationSpeed? = null,
     soundVolumeOverride: Float? = null,
     botSkillOverride: BotSkill? = null,
@@ -86,12 +86,14 @@ fun EuchreApp(
     // function the dealing animation's sound hook uses for shuffle/deal effects.
     val playSound = rememberEuchreSoundEffects(view = view, volume = settingsControls.soundVolume)
 
+    // A lesson forces the trick hold on so every completed trick waits to be explained. Decided
+    // once, here: the ViewModel's gates and the felt that raises their signal must agree, and two
+    // separate derivations of "is the hold on" could disagree and wedge the game.
+    val holdTricks = settingsControls.holdTricks || activeLessonId != null
+
     // The pacing settings live in the ViewModel (its gates read them as flows), so mirror them in.
     LaunchedEffect(settingsControls.animationSpeed) { vm.setAnimationSpeed(settingsControls.animationSpeed) }
-    // A lesson forces the trick hold on so every completed trick waits to be explained.
-    LaunchedEffect(settingsControls.holdTricks, activeLessonId) {
-        vm.setHoldTricks(settingsControls.holdTricks || activeLessonId != null)
-    }
+    LaunchedEffect(holdTricks) { vm.setHoldTricks(holdTricks) }
 
     val startLesson: (TutorialLesson) -> Unit = { lesson ->
         // The script depends on the exact table: pinned seed, pinned dealer, pinned house rules and
@@ -118,7 +120,8 @@ fun EuchreApp(
                 botNames = vm.botNames,
                 settings = settingsControls,
                 monetization = monetization,
-                onAction = { action -> vm.submitHumanAction(action) },
+                holdTricks = holdTricks,
+                onAction = vm::submitHumanAction,
                 onExit = {
                     activeLessonId = null
                     appScreen = AppScreen.HOME.name
@@ -146,7 +149,7 @@ fun EuchreApp(
                 settings = settingsControls,
                 onStart = {
                     vm.newGame(
-                        seed = seedOverride ?: nextSeed(),
+                        seed = nextSeed(),
                         houseRules = settingsControls.houseRules,
                         botSkill = settingsControls.botSkill,
                         aiBudgetMillis = aiBudgetMillisOverride,
@@ -247,23 +250,13 @@ private fun rememberSettingsControls(
     )
 }
 
-/** Persists only the toggles that actually changed, so one switch writes one key. */
+/**
+ * Persists only the toggles that actually changed, so one switch writes one key. Driven by the same
+ * [HOUSE_RULE_ROWS] table the switches are rendered from, so adding a house rule is one entry.
+ */
 private suspend fun SettingsRepository.applyHouseRules(from: EuchreHouseRules, to: EuchreHouseRules) {
-    if (to.stickTheDealer != from.stickTheDealer) setStickTheDealer(to.stickTheDealer)
-    if (to.defendAlone != from.defendAlone) setDefendAlone(to.defendAlone)
-    if (to.bennyEnabled != from.bennyEnabled) setBennyEnabled(to.bennyEnabled)
-    if (to.farmersHand != from.farmersHand) setFarmersHand(to.farmersHand)
-}
-
-/** Routes an action from the UI to the ViewModel's per-action funnels. */
-private fun EuchreViewModel.submitHumanAction(action: EuchreAction) = when (action) {
-    is EuchreAction.Pass -> passBid()
-    is EuchreAction.OrderUp -> orderUp(action.alone)
-    is EuchreAction.CallTrump -> callTrump(action.suit, action.alone)
-    is EuchreAction.DealerDiscard -> discard(action.card)
-    is EuchreAction.DefendAlone -> defendAlone()
-    is EuchreAction.DeclineDefend -> declineDefend()
-    is EuchreAction.CallFarmers -> callFarmers(action.discards)
-    is EuchreAction.DeclineFarmers -> declineFarmers()
-    is EuchreAction.PlayCard -> playCard(action.card)
+    HOUSE_RULE_ROWS.forEach { row ->
+        val value = row.read(to)
+        if (value != row.read(from)) row.persist(this, value)
+    }
 }

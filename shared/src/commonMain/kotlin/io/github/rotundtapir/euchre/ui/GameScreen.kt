@@ -62,6 +62,9 @@ fun GameScreen(
     onAction: (EuchreAction) -> Unit,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
+    // Whether a completed trick waits to be tapped away. Decided by the caller, because a tutorial
+    // lesson forces it on and the ViewModel's pacing gates must be told the same thing.
+    holdTricks: Boolean = false,
     onResultDismiss: (Int) -> Unit = {},
     onDealAnimationFinish: (Int) -> Unit = {},
     onTrickAcknowledge: (Int, Int) -> Unit = { _, _ -> },
@@ -88,7 +91,7 @@ fun GameScreen(
 
     val dealState = remember { DealAnimationState() }
     dealState.soundHook = soundHook
-    val deal = rememberDealGate(view, animationSpeed, dealState, onDealAnimationFinish) { handNumber ->
+    val dealtHand = rememberDealGate(view, animationSpeed, dealState, onDealAnimationFinish) { handNumber ->
         snapshotFlow { resultAckedHand }.first { it >= handNumber }
     }
 
@@ -122,25 +125,22 @@ fun GameScreen(
                     animationSpeed = animationSpeed,
                     dealState = dealState,
                     modifier = Modifier.weight(1f),
-                    holdTricks = settings.holdTricks,
+                    holdTricks = holdTricks,
                     onTrickAcknowledge = onTrickAcknowledge,
-                    forceHold = tutorial != null,
+                    // A lesson's bubble carries the "tap the trick" instruction itself.
+                    hideTapHint = tutorial != null,
                     anchors = tutorialAnchors,
                 )
                 when {
                     dealState.dealing -> DealingHandRow(
-                        cards = if (sortHand) {
-                            remember(view.hand, view.trump) { sortedForDisplay(view.hand, view.trump) }
-                        } else {
-                            view.hand
-                        },
+                        cards = rememberDisplayHand(view, sortHand),
                         state = dealState,
                         humanSeat = view.seat,
                         timings = dealTimings(animationSpeed),
                     )
                     // A fresh hand whose shuffle is still held behind the result dialog: keep the
                     // new cards and the bidding buttons off screen until the deal actually runs.
-                    animationSpeed != AnimationSpeed.OFF && view.handNumber > deal.dealtHand ->
+                    animationSpeed != AnimationSpeed.OFF && view.handNumber > dealtHand ->
                         Box(Modifier.fillMaxWidth())
                     else -> ActionArea(
                         view = view,
@@ -216,12 +216,10 @@ fun GameScreen(
     }
 }
 
-/** How far the deal animation has got, as the screen's layout needs to know it. */
-private class DealProgress(val dealtHand: Int)
-
 /**
- * Runs the shuffle-and-deal animation once per new hand and reports which hands have been dealt on
- * screen. Cards fly from a centre deck to each seat in Euchre's two-pass packet order, then the
+ * Runs the shuffle-and-deal animation once per new hand and returns the highest hand number whose
+ * deal has finished showing (or was skipped) — while the view is beyond it the hand area renders
+ * nothing, so a hand held behind the result dialog cannot flash its cards before the shuffle. Cards fly from a centre deck to each seat in Euchre's two-pass packet order, then the
  * turn card lands on the felt, then the human's five flip face up. [awaitResultAck] holds the
  * shuffle until the previous hand's result dialog is gone.
  *
@@ -235,16 +233,13 @@ private fun rememberDealGate(
     dealState: DealAnimationState,
     onDealAnimationFinish: (Int) -> Unit,
     awaitResultAck: suspend (Int) -> Unit,
-): DealProgress {
+): Int {
     // rememberUpdatedState so a recomposition that changes the callback identity doesn't leave the
     // running effect holding a stale one.
     val currentFinish by rememberUpdatedState(onDealAnimationFinish)
     val currentAwaitAck by rememberUpdatedState(awaitResultAck)
     // Saveable so an activity recreation doesn't replay a deal that already ran.
     var lastAnimatedHand by rememberSaveable { mutableIntStateOf(0) }
-    // Highest hand whose deal has finished showing (or was skipped). While view.handNumber is
-    // beyond this the hand area renders nothing, so a hand held behind the result dialog cannot
-    // flash its cards before the shuffle.
     var dealtHand by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(view.handNumber) {
         if (animationSpeed == AnimationSpeed.OFF) return@LaunchedEffect
@@ -275,5 +270,5 @@ private fun rememberDealGate(
         // devices can't open the auction mid-deal.
         currentFinish(view.handNumber)
     }
-    return DealProgress(dealtHand)
+    return dealtHand
 }

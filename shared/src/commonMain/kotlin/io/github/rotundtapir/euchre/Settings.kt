@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception
 package io.github.rotundtapir.euchre
 
+import androidx.compose.runtime.Stable
 import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
 import io.github.rotundtapir.cardkit.ui.settings.BotSkill
 import io.github.rotundtapir.cardkit.ui.settings.KeyValueStore
@@ -45,7 +46,11 @@ object SettingsDefaults {
 /**
  * The app's persisted preferences. Platform backends implement [KeyValueStore] (DataStore on
  * Android, localStorage on web) and this repository maps the game's keys onto it.
+ *
+ * [Stable] so the composables that bundle its callbacks can be skipped: the flows are `val`s and
+ * every mutation goes through a suspend setter, which is exactly the contract.
  */
+@Stable
 interface SettingsRepository {
     val animationSpeed: Flow<AnimationSpeed>
     val sortHandByDefault: Flow<Boolean>
@@ -76,9 +81,7 @@ interface SettingsRepository {
  */
 class KeyValueSettingsRepository(private val store: KeyValueStore) : SettingsRepository {
     override val animationSpeed: Flow<AnimationSpeed> =
-        store.enumSetting(SettingsKeys.ANIMATION_SPEED, SettingsDefaults.ANIMATION_SPEED) { name ->
-            AnimationSpeed.entries.firstOrNull { it.name == name }
-        }
+        store.enumSetting(SettingsKeys.ANIMATION_SPEED, SettingsDefaults.ANIMATION_SPEED, AnimationSpeed::fromName)
     override val sortHandByDefault: Flow<Boolean> =
         store.booleanSetting(SettingsKeys.SORT_HAND_BY_DEFAULT, SettingsDefaults.SORT_HAND_BY_DEFAULT)
     override val holdTricks: Flow<Boolean> =
@@ -86,9 +89,7 @@ class KeyValueSettingsRepository(private val store: KeyValueStore) : SettingsRep
     override val soundVolume: Flow<Float> =
         store.floatSetting(SettingsKeys.SOUND_VOLUME, SettingsDefaults.SOUND_VOLUME)
     override val botSkill: Flow<BotSkill> =
-        store.enumSetting(SettingsKeys.BOT_SKILL, SettingsDefaults.BOT_SKILL) { name ->
-            BotSkill.entries.firstOrNull { it.name == name }
-        }
+        store.enumSetting(SettingsKeys.BOT_SKILL, SettingsDefaults.BOT_SKILL, BotSkill::fromName)
     override val stickTheDealer: Flow<Boolean> =
         store.booleanSetting(SettingsKeys.STICK_THE_DEALER, SettingsDefaults.STICK_THE_DEALER)
     override val defendAlone: Flow<Boolean> =

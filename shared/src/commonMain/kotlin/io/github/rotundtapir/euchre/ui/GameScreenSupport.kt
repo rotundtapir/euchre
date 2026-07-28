@@ -2,6 +2,8 @@
 package io.github.rotundtapir.euchre.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import io.github.rotundtapir.cardkit.core.Card
@@ -9,16 +11,13 @@ import io.github.rotundtapir.cardkit.core.JokerRole
 import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.cardkit.core.Suit
 import io.github.rotundtapir.cardkit.core.TrickEvaluator
-import io.github.rotundtapir.cardkit.core.nextSeat
-import io.github.rotundtapir.cardkit.core.playOrder
-import io.github.rotundtapir.cardkit.core.teamOf
 import io.github.rotundtapir.cardkit.ui.deal.DealPacket
 import io.github.rotundtapir.cardkit.ui.deal.DealTarget
 import io.github.rotundtapir.cardkit.ui.felt.OpponentTeamColors
 import io.github.rotundtapir.cardkit.ui.felt.PartnerHighlight
+import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
-import io.github.rotundtapir.euchre.engine.PLAYER_COUNT
-import io.github.rotundtapir.euchre.engine.TEAM_COUNT
+import io.github.rotundtapir.euchre.engine.dealOrder
 
 /** The felt anchor key of the up-card / kitty stub the deal's last packet flies to. */
 const val UPCARD_ANCHOR = "upcard"
@@ -39,7 +38,7 @@ fun seatLabel(humanSeat: Seat, botNames: Map<Seat, String>, seat: Seat): String 
  * never run out.
  */
 fun teamColor(view: EuchrePlayerView, seat: Seat): Color =
-    if (teamOf(seat, TEAM_COUNT) == view.myTeam) PartnerHighlight else OpponentTeamColors.first()
+    if (view.isMyTeam(seat)) PartnerHighlight else OpponentTeamColors.first()
 
 /** Clickable only while [enabled] — a factory, since conditional `.then` chains crash AGP lint. */
 fun Modifier.tappableWhen(enabled: Boolean, onTap: () -> Unit): Modifier =
@@ -59,6 +58,23 @@ private fun displayEvaluator(trump: Suit?): TrickEvaluator =
  * remaining suits in alternating colours, each strongest first. Bower-aware — the left bower sorts
  * into the trump block, not its printed suit, which is the whole point of offering the toggle.
  */
+/**
+ * The human's hand as it should be drawn, memoized: the sort's inputs only change on a new hand, a
+ * card played, or trump being made, but the enclosing screen recomposes on every engine transition.
+ */
+@Composable
+fun rememberDisplayHand(view: EuchrePlayerView, sorted: Boolean): List<Card> =
+    if (sorted) remember(view.hand, view.trump) { sortedForDisplay(view.hand, view.trump) } else view.hand
+
+/**
+ * True when a completed trick is sitting on the felt waiting to be acknowledged, as far as the
+ * *view* can tell. Presentation decides whether it is actually held there (the hold setting, the
+ * animation speed, whether a deal is running) — this is the half both the felt and the tutorial
+ * bubble must agree on.
+ */
+fun EuchrePlayerView.hasClosedTrick(): Boolean =
+    phase == EuchrePhase.PLAY && currentTrick.isEmpty() && lastTrick != null && !isMyTurn
+
 fun sortedForDisplay(hand: List<Card>, trump: Suit?): List<Card> {
     val eval = displayEvaluator(trump)
     val suitOrder = listOf(Suit.SPADES, Suit.HEARTS, Suit.CLUBS, Suit.DIAMONDS)
@@ -69,10 +85,6 @@ fun sortedForDisplay(hand: List<Card>, trump: Suit?): List<Card> {
         ),
     )
 }
-
-/** The seats, in the order they act this hand: from the dealer's left, clockwise. */
-fun dealOrder(dealer: Seat): List<Seat> =
-    playOrder(nextSeat(dealer, PLAYER_COUNT), (0 until PLAYER_COUNT).map(::Seat))
 
 /**
  * Euchre's deal, as the animation's packet schedule.

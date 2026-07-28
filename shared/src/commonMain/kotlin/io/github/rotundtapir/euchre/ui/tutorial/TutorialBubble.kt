@@ -37,6 +37,7 @@ import io.github.rotundtapir.cardkit.ui.tutorial.TutorialAnchors
 import io.github.rotundtapir.cardkit.ui.tutorial.TutorialScriptState
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
+import io.github.rotundtapir.euchre.ui.hasClosedTrick
 import io.github.rotundtapir.euchre.ui.seatLabel
 import kotlin.math.roundToInt
 
@@ -83,17 +84,14 @@ internal fun TutorialBubble(
         is EuchreTutorialStep.PlayStep -> view.phase == EuchrePhase.PLAY
         null -> false
     }
-    // A completed trick held on the felt (a lesson forces the hold on): explain what happened.
-    // Mirrors TrickArea's holdingTrick — once a trick closes, view.trickNumber IS that trick's
-    // number, so it keys the lesson's notes directly.
-    val lastTrick = view.lastTrick
-    val trickHeld = view.phase == EuchrePhase.PLAY && view.currentTrick.isEmpty() &&
-        lastTrick != null && !view.isMyTurn
+    // A completed trick held on the felt (a lesson forces the hold on): explain what happened. Once
+    // a trick closes, view.trickNumber IS that trick's number, so it keys the lesson's notes.
+    val closedTrick = view.lastTrick?.takeIf { view.hasClosedTrick() }
     val text = when {
         step == null -> session.lesson.handDone
         isHumanDecision -> step.advice
-        trickHeld -> session.lesson.trickNotes[view.trickNumber]
-            ?: "${seatLabel(view.seat, botNames, lastTrick.winner)} won the trick; tap it to continue."
+        closedTrick != null -> session.lesson.trickNotes[view.trickNumber]
+            ?: "${seatLabel(view.seat, botNames, closedTrick.winner)} won the trick; tap it to continue."
         else -> return
     }
     val target = anchors[targetKey(step, isHumanDecision)]

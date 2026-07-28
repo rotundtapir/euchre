@@ -44,17 +44,7 @@ class EuchreViewModelTest {
     private val decider = EuchreBot()
 
     private fun submitHumanTurn(vm: EuchreViewModel, view: EuchrePlayerView, salt: Long) {
-        when (val action = decider.decide(view, Random(salt))) {
-            is EuchreAction.Pass -> vm.passBid()
-            is EuchreAction.OrderUp -> vm.orderUp(action.alone)
-            is EuchreAction.CallTrump -> vm.callTrump(action.suit, action.alone)
-            is EuchreAction.DealerDiscard -> vm.discard(action.card)
-            is EuchreAction.DefendAlone -> vm.defendAlone()
-            is EuchreAction.DeclineDefend -> vm.declineDefend()
-            is EuchreAction.CallFarmers -> vm.callFarmers(action.discards)
-            is EuchreAction.DeclineFarmers -> vm.declineFarmers()
-            is EuchreAction.PlayCard -> vm.playCard(action.card)
-        }
+        vm.submitHumanAction(decider.decide(view, Random(salt)))
     }
 
     private fun offGame(
