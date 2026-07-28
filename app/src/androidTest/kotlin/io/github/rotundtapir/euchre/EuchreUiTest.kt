@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
@@ -16,6 +17,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
+import io.github.rotundtapir.euchre.ui.HAND_CARD_TAG_PREFIX
+import io.github.rotundtapir.euchre.ui.HUMAN_HAND_TAG
 import org.junit.Rule
 
 /**
@@ -53,7 +56,7 @@ abstract class EuchreUiTest {
         }
 
     /** A card the human may currently tap: CardHand puts the tag and the click action on one node. */
-    private val clickableCard = hasClickAction() and hasTestTagPrefix("card:")
+    private val clickableCard = hasClickAction() and hasTestTagPrefix(HAND_CARD_TAG_PREFIX)
 
     protected fun textExists(text: String, substring: Boolean = false): Boolean =
         rule.onAllNodes(
@@ -73,7 +76,15 @@ abstract class EuchreUiTest {
     protected fun nodesWithTagPrefix(prefix: String): List<SemanticsNode> =
         rule.onAllNodes(hasTestTagPrefix(prefix), useUnmergedTree = true).fetchSemanticsNodes()
 
-    protected fun cardsOnScreen(): Int = nodesWithTagPrefix("card:").size
+    /**
+     * Cards in the human's fan. Uses the game's own `hand:` prefix rather than cardkit's `card:`,
+     * which is applied to every card cardkit draws — the nested image inside each of these cards
+     * included, as well as the trick, the up-card and `CardArtWarmup`'s off-screen deck.
+     */
+    protected fun cardsInHand(): Int = rule.onAllNodes(
+        hasTestTagPrefix(HAND_CARD_TAG_PREFIX) and hasAnyAncestor(hasTestTag(HUMAN_HAND_TAG)),
+        useUnmergedTree = true,
+    ).fetchSemanticsNodes().size
 
     protected fun clickableCards() = rule.onAllNodes(clickableCard, useUnmergedTree = true)
 

@@ -402,6 +402,19 @@ private data class HandParams(
 /** Fan exposure: each card advances this fraction of a card width, so only that strip is visible. */
 private const val HAND_EXPOSURE = 0.5f
 
+/** Tags the human's fan, so tests can scope queries to the cards actually in hand. */
+const val HUMAN_HAND_TAG = "humanHand"
+
+/**
+ * Test-tag prefix for a card in the human's fan, e.g. `hand:JS`.
+ *
+ * Deliberately NOT `card:` — cardkit's `PlayingCard` already tags every card it draws
+ * `card:<label>`, including the nested image inside each of these very cards, plus the trick, the
+ * up-card and `CardArtWarmup`'s off-screen deck. Sharing that prefix made every hand query
+ * ambiguous.
+ */
+const val HAND_CARD_TAG_PREFIX = "hand:"
+
 /** The human's fan, with the sort toggle above it. */
 @Composable
 private fun HumanHand(
@@ -439,6 +452,10 @@ private fun HumanHand(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
+                // Scopes card queries to this hand: cardkit's PlayingCard tags every card it draws
+                // `card:<label>`, so an unscoped `card:` search also finds the trick, the up-card
+                // and CardArtWarmup's off-screen deck.
+                .testTag(HUMAN_HAND_TAG)
                 .tutorialTarget(hand.anchors, HAND_ANCHOR),
             contentAlignment = Alignment.Center,
         ) {
@@ -454,7 +471,7 @@ private fun HumanHand(
                     // Only the exposed left strip of a fanned card is visible, so that is the rect
                     // the tutorial's tail should point at.
                     Modifier
-                        .testTag("card:${card.code}")
+                        .testTag("$HAND_CARD_TAG_PREFIX${card.code}")
                         .tutorialTarget(hand.anchors, cardAnchor(card.code), widthFraction = HAND_EXPOSURE)
                 },
             )

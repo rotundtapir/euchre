@@ -57,7 +57,7 @@ class GameFlowTest : EuchreUiTest() {
         rule.onNodeWithTag("bid:pass").assertIsDisplayed()
         rule.onNodeWithTag("bid:orderUp").assertIsDisplayed()
         rule.onNodeWithTag("aloneToggle").assertIsDisplayed()
-        assertEquals("hand should hold 5 cards during bidding", HAND_CARDS, cardsOnScreen())
+        assertEquals("hand should hold 5 cards during bidding", HAND_CARDS, cardsInHand())
 
         // Nothing is playable yet: no card may be tapped during the auction.
         assertEquals(0, clickableCards().fetchSemanticsNodes().size)
@@ -76,7 +76,7 @@ class GameFlowTest : EuchreUiTest() {
         rule.onNodeWithTag("bid:orderUp").performClick()
         waitForText(DISCARD_PROMPT, substring = true)
 
-        assertEquals("dealer holds six while burying one", HAND_CARDS + 1, cardsOnScreen())
+        assertEquals("dealer holds six while burying one", HAND_CARDS + 1, cardsInHand())
         rule.onNodeWithTag("discardButton").assertIsNotEnabled()
 
         clickableCards()[0].performScrollTo().performClick()
@@ -86,7 +86,7 @@ class GameFlowTest : EuchreUiTest() {
         // Back to five cards, trump is made, and the hand is under way.
         rule.waitUntil(STEP_TIMEOUT_MS) { !textExists(DISCARD_PROMPT, substring = true) }
         rule.waitUntil(STEP_TIMEOUT_MS) { textExists("Trump:", substring = true) }
-        rule.waitUntil(STEP_TIMEOUT_MS) { cardsOnScreen() == HAND_CARDS }
+        rule.waitUntil(STEP_TIMEOUT_MS) { cardsInHand() == HAND_CARDS }
     }
 
     @Test
@@ -195,10 +195,10 @@ class GameFlowTest : EuchreUiTest() {
     fun sortToggle_keepsEveryCard() {
         startGame()
         waitForRound1Bid()
-        assertEquals(HAND_CARDS, cardsOnScreen())
+        assertEquals(HAND_CARDS, cardsInHand())
         rule.onNodeWithTag("sortToggle").performClick()
         rule.waitForIdle()
-        assertEquals("toggling sort must not add or drop cards", HAND_CARDS, cardsOnScreen())
+        assertEquals("toggling sort must not add or drop cards", HAND_CARDS, cardsInHand())
     }
 
     @Test
@@ -233,7 +233,7 @@ class GameFlowTest : EuchreUiTest() {
         rule.activityRule.scenario.recreate()
 
         rule.waitUntil(STEP_TIMEOUT_MS) { nodesWithTag("menuButton").isNotEmpty() }
-        assertEquals(HAND_CARDS, cardsOnScreen())
+        assertEquals(HAND_CARDS, cardsInHand())
     }
 
     @Test
