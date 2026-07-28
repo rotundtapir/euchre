@@ -23,10 +23,8 @@ if [ -z "${JAVA_HOME:-}" ] || ! "${JAVA_HOME}/bin/java" -version 2>&1 | grep -q 
     done
 fi
 
-# TODO(:app): add `lint` back once an Android module exists — with only KMP modules the task
-# name does not resolve and Gradle aborts.
-echo "[pre-commit] ./gradlew qualityCheck jvmTest   (JAVA_HOME=${JAVA_HOME:-<default>})"
-if ! ./gradlew --console=plain --quiet qualityCheck jvmTest; then
+echo "[pre-commit] ./gradlew qualityCheck lint jvmTest   (JAVA_HOME=${JAVA_HOME:-<default>})"
+if ! ./gradlew --console=plain --quiet qualityCheck lint jvmTest; then
     echo >&2
     echo "[pre-commit] Gradle quality/lint/test failed — fix the issues above, or bypass with 'git commit --no-verify'." >&2
     exit 1
