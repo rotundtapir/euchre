@@ -47,6 +47,7 @@ import io.github.rotundtapir.euchre.ui.tutorial.ACTION_ANCHOR
 import io.github.rotundtapir.euchre.ui.tutorial.EuchreTutorialSession
 import io.github.rotundtapir.euchre.ui.tutorial.EuchreTutorialStep
 import io.github.rotundtapir.euchre.ui.tutorial.HAND_ANCHOR
+import io.github.rotundtapir.euchre.ui.tutorial.PANEL_ANCHOR
 import io.github.rotundtapir.euchre.ui.tutorial.cardAnchor
 
 /**
@@ -67,7 +68,10 @@ fun ActionArea(
     tutorial: EuchreTutorialSession? = null,
     anchors: TutorialAnchors? = null,
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier.fillMaxWidth()) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.fillMaxWidth().tutorialTarget(anchors, PANEL_ANCHOR),
+    ) {
         Text(
             "You — tricks: ${view.tricksWon[view.seat] ?: 0}" + if (view.seat == view.dealer) " · dealer" else "",
             fontWeight = if (view.isMyTurn) FontWeight.Bold else FontWeight.Normal,

@@ -99,6 +99,9 @@ internal fun TutorialBubble(
         ?: anchors[TRICK_ANCHOR]
         ?: return
     val tailDown = isHumanDecision
+    // Never sit on top of the controls the advice is telling the player to use: the bubble stops
+    // above the action panel even when its target (a card in the fan) is below that.
+    val panelTop = anchors[PANEL_ANCHOR]?.let { it.top - overlayOrigin.y }
     // Trump is not made yet at a bidding step, so fall back to the suit on offer — which is exactly
     // the suit the advice is reasoning about.
     val bowerSuit = view.trump ?: view.upcardSuit
@@ -111,7 +114,11 @@ internal fun TutorialBubble(
         tailDown = tailDown,
         maxWidth = 520.dp,
         yPlacement = { local, height, gap ->
-            if (tailDown) (local.top - height - gap).roundToInt() else (local.bottom - height - gap).roundToInt()
+            if (tailDown) {
+                bubbleTopAbove(local.top, panelTop, height, gap)
+            } else {
+                (local.bottom - height - gap).roundToInt()
+            }
         },
     ) {
         Surface(
@@ -155,6 +162,19 @@ internal fun targetKey(step: EuchreTutorialStep?, isHumanDecision: Boolean): Str
     step is EuchreTutorialStep.DiscardStep -> cardAnchor(step.card.code)
     else -> ACTION_ANCHOR
 }
+
+/**
+ * Where the top of a downward-pointing bubble goes: clear of its [targetTop], and clear of the
+ * action panel's top edge too when there is one. Pointing at a card in the fan would otherwise put
+ * the bubble over the prompt and the Discard button — the very controls the text asks for.
+ */
+internal fun bubbleTopAbove(targetTop: Float, panelTop: Float?, bubbleHeight: Int, gap: Int): Int {
+    val ceiling = if (panelTop != null) minOf(targetTop, panelTop) else targetTop
+    return (ceiling - bubbleHeight - gap).roundToInt()
+}
+
+/** The action panel below the felt: the bubble stays above it rather than covering its buttons. */
+const val PANEL_ANCHOR = "panel"
 
 /** The felt: where the bubble sits while a completed trick is being explained. */
 const val TRICK_ANCHOR = "trick"

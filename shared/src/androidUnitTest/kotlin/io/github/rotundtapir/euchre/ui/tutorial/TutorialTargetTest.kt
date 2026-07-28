@@ -46,6 +46,27 @@ class TutorialTargetTest {
     }
 
     @Test
+    fun `a bubble pointing at a card still clears the action panel`() {
+        // The fan sits below the prompt and the Discard button, so a bubble placed only against the
+        // card covers both — the controls the advice is asking the player to use.
+        val panelTop = 1200f
+        val cardTop = 1600f
+        val top = bubbleTopAbove(cardTop, panelTop, bubbleHeight = 700, gap = 12)
+        assertEquals(1200 - 700 - 12, top, "the bubble stops above the panel, not above the card")
+    }
+
+    @Test
+    fun `with no panel on screen the bubble sits against its target`() {
+        assertEquals(400 - 100 - 12, bubbleTopAbove(400f, null, bubbleHeight = 100, gap = 12))
+    }
+
+    @Test
+    fun `a target above the panel keeps its own placement`() {
+        // A bidding button is inside the panel but above its bottom; the tighter of the two wins.
+        assertEquals(900 - 300 - 12, bubbleTopAbove(900f, 1200f, bubbleHeight = 300, gap = 12))
+    }
+
+    @Test
     fun `while the bots act the bubble sits over the felt`() {
         assertEquals(TRICK_ANCHOR, targetKey(null, isHumanDecision = false))
         assertEquals(
