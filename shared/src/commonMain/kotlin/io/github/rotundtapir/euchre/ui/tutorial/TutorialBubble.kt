@@ -52,8 +52,7 @@ class EuchreTutorialSession(
     val onFinish: () -> Unit,
 ) {
     /** The generic cardkit script cursor over this lesson's steps. */
-    val script: TutorialScriptState<EuchreTutorialStep> =
-        TutorialScriptState(lesson.steps, stepIndex, onAdvance)
+    val script: EuchreTutorialState = TutorialScriptState(lesson.steps, stepIndex, onAdvance)
 
     /** The pending human decision, or null once the lesson's hand is over. */
     val step: EuchreTutorialStep? get() = script.step
