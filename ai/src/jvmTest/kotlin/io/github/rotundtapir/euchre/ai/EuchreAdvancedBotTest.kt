@@ -2,6 +2,7 @@
 package io.github.rotundtapir.euchre.ai
 
 import io.github.rotundtapir.cardkit.core.Seat
+import io.github.rotundtapir.euchre.engine.EUCHRE_SEATS
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchreRules
 import io.github.rotundtapir.euchre.engine.EuchreState
@@ -24,8 +25,8 @@ class EuchreAdvancedBotTest {
     )
 
     private suspend fun playAdvancedMatch(rules: EuchreRules, seed: Long): EuchreState {
-        val bots = (0..3).associate {
-            Seat(it) to (EuchreAdvancedBot(rules, testConfig()) to Random(seed + it))
+        val bots = EUCHRE_SEATS.associateWith { seat ->
+            EuchreAdvancedBot(rules, testConfig()) to Random(seed + seat.index)
         }
         var state = rules.newGame(seed)
         var steps = 0
@@ -73,7 +74,7 @@ class EuchreAdvancedBotTest {
         val actor = rules.currentActor(state)!!
         // Poison the view: impossible hand sizes make the sampler's pool run dry and throw.
         val view = rules.view(state, actor).copy(
-            handSizes = (0..3).associate { Seat(it) to 10 },
+            handSizes = EUCHRE_SEATS.associateWith { 10 },
         )
         val action = bot.decide(view, Random(1))
         assertTrue(action in view.legalActions)
@@ -96,10 +97,10 @@ class EuchreAdvancedBotTest {
         val series = 6
         repeat(series) { game ->
             val heuristic = EuchreBot()
-            val bots = (0..3).associate { i ->
-                Seat(i) to if (i % 2 == 0) EuchreAdvancedBot(rules, testConfig(maxWorlds = 16)) else null
+            val bots = EUCHRE_SEATS.associateWith { seat ->
+                if (seat.index % 2 == 0) EuchreAdvancedBot(rules, testConfig(maxWorlds = 16)) else null
             }
-            val randoms = (0..3).associate { Seat(it) to Random(9000L + game * 10 + it) }
+            val randoms = EUCHRE_SEATS.associateWith { Random(9000L + game * 10 + it.index) }
             var state = rules.newGame(9000L + game)
             var steps = 0
             while (!rules.isTerminal(state)) {

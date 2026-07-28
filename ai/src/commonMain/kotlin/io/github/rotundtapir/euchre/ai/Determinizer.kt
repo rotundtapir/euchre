@@ -4,7 +4,8 @@ package io.github.rotundtapir.euchre.ai
 import io.github.rotundtapir.cardkit.ai.ConstrainedHandSampler
 import io.github.rotundtapir.cardkit.ai.TrickMemory
 import io.github.rotundtapir.cardkit.core.Card
-import io.github.rotundtapir.cardkit.core.JokerRole
+import io.github.rotundtapir.cardkit.core.Seat
+import io.github.rotundtapir.cardkit.core.Suit
 import io.github.rotundtapir.cardkit.core.TrickEvaluator
 import io.github.rotundtapir.euchre.engine.EuchreBiddingState
 import io.github.rotundtapir.euchre.engine.EuchrePhase
@@ -13,6 +14,7 @@ import io.github.rotundtapir.euchre.engine.EuchreState
 import io.github.rotundtapir.euchre.engine.HAND_SIZE
 import io.github.rotundtapir.euchre.engine.PLAYER_COUNT
 import io.github.rotundtapir.euchre.engine.euchreDeck
+import io.github.rotundtapir.euchre.engine.euchreEvaluator
 import kotlin.random.Random
 
 /**
@@ -41,7 +43,7 @@ internal class EuchreSeenTracker(private val benny: Boolean) {
             myFarmersDiscards = emptyList()
         }
         val trump = view.trump ?: return // nothing on the felt before trump is made
-        val eval = TrickEvaluator(trump, if (benny) JokerRole.HIGHEST_TRUMP else JokerRole.ABSENT)
+        val eval = euchreEvaluator(trump, benny)
         view.lastTrick?.let { memory.record(it.plays, eval) }
         memory.record(view.currentTrick, eval)
     }
@@ -79,25 +81,50 @@ internal class EuchreDeterminizer(private val benny: Boolean) {
     private val sampler = ConstrainedHandSampler(deck)
     private val kittySize = deck.size - PLAYER_COUNT * HAND_SIZE - 1
 
-    /** One sampled world: a state the reducer accepts, agreeing with everything [view] shows. */
-    fun sample(view: EuchrePlayerView, tracker: EuchreSeenTracker, random: Random): EuchreState {
+    /**
+     * Everything about a decision that every sampled world shares. Built once per decision — a
+     * search draws up to a couple of hundred worlds from it, and none of this varies between them.
+     */
+    class SampleSetup(
+        val view: EuchrePlayerView,
+        val knownGone: Set<Card>,
+        val voids: Map<Seat, Set<Suit>>,
+        val handSizes: Map<Seat, Int>,
+        val eval: TrickEvaluator?,
+        /** True when the picked-up turn card should be credited to the dealer's sampled hand. */
+        val dealerGetsUpcard: Boolean,
+    )
+
+    /** The invariant half of sampling, for one decision on [view]. */
+    fun setup(view: EuchrePlayerView, tracker: EuchreSeenTracker): SampleSetup {
         val upcard = view.upcard
         val dealerGetsUpcard = view.upcardTaken && upcard != null &&
             view.dealer != view.seat && upcard !in tracker.memory.seenPlays &&
             (view.handSizes[view.dealer] ?: 0) > 0
         val handSizes = view.handSizes.toMutableMap()
         if (dealerGetsUpcard) handSizes[view.dealer] = handSizes.getValue(view.dealer) - 1
-        val result = sampler.sample(
-            fixedHands = mapOf(view.seat to view.hand),
-            handSizes = handSizes,
+        return SampleSetup(
+            view = view,
             knownGone = tracker.knownGone(view),
             voids = tracker.memory.voids,
-            eval = view.trump?.takeIf { view.phase == EuchrePhase.PLAY }?.let {
-                TrickEvaluator(it, if (benny) JokerRole.HIGHEST_TRUMP else JokerRole.ABSENT)
-            },
+            handSizes = handSizes,
+            eval = view.trump?.takeIf { view.phase == EuchrePhase.PLAY }?.let { euchreEvaluator(it, benny) },
+            dealerGetsUpcard = dealerGetsUpcard,
+        )
+    }
+
+    /** One sampled world: a state the reducer accepts, agreeing with everything the view shows. */
+    fun sample(setup: SampleSetup, random: Random): EuchreState {
+        val view = setup.view
+        val result = sampler.sample(
+            fixedHands = mapOf(view.seat to view.hand),
+            handSizes = setup.handSizes,
+            knownGone = setup.knownGone,
+            voids = setup.voids,
+            eval = setup.eval,
             random = random,
         )
-        if (dealerGetsUpcard) result.hands.getValue(view.dealer).add(checkNotNull(upcard))
+        if (setup.dealerGetsUpcard) result.hands.getValue(view.dealer).add(checkNotNull(view.upcard))
         // The reducer only reads the kitty for farmers swaps; leave it empty in other phases.
         val kitty =
             if (view.phase == EuchrePhase.FARMERS) List(kittySize) { result.pool.removeFirst() } else emptyList()
@@ -107,7 +134,7 @@ internal class EuchreDeterminizer(private val benny: Boolean) {
     /** Copies the public state across verbatim around the sampled [hands] and [kitty]. */
     private fun reconstruct(
         view: EuchrePlayerView,
-        hands: Map<io.github.rotundtapir.cardkit.core.Seat, List<Card>>,
+        hands: Map<Seat, List<Card>>,
         kitty: List<Card>,
         random: Random,
     ): EuchreState = EuchreState(

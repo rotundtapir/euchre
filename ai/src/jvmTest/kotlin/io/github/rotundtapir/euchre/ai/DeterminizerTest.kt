@@ -2,12 +2,13 @@
 package io.github.rotundtapir.euchre.ai
 
 import io.github.rotundtapir.cardkit.core.Seat
+import io.github.rotundtapir.euchre.engine.EUCHRE_SEATS
 import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePhase
+import io.github.rotundtapir.euchre.engine.EuchrePlayerView
 import io.github.rotundtapir.euchre.engine.EuchreRules
 import io.github.rotundtapir.euchre.engine.EuchreState
 import io.github.rotundtapir.euchre.engine.HAND_SIZE
-import io.github.rotundtapir.euchre.engine.PLAYER_COUNT
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -16,8 +17,12 @@ import kotlin.test.assertTrue
 class DeterminizerTest {
     private val rules = EuchreRules()
 
-    private fun freshTracker(view: io.github.rotundtapir.euchre.engine.EuchrePlayerView): EuchreSeenTracker =
+    private fun freshTracker(view: EuchrePlayerView): EuchreSeenTracker =
         EuchreSeenTracker(benny = false).also { it.observe(view) }
+
+    /** One world for [view], as the bot draws it: a fresh tracker, a fresh per-decision setup. */
+    private fun EuchreDeterminizer.sampleWorld(view: EuchrePlayerView, random: Random): EuchreState =
+        sample(setup(view, freshTracker(view)), random)
 
     private fun EuchreState.viewOf(seat: Int) = rules.view(this, Seat(seat))
 
@@ -25,13 +30,13 @@ class DeterminizerTest {
     fun `sampled worlds agree with the view's public state and my hand`() {
         val state = rules.newGame(3)
         val view = state.viewOf(1)
-        val world = EuchreDeterminizer(false).sample(view, freshTracker(view), Random(1))
+        val world = EuchreDeterminizer(false).sampleWorld(view, Random(1))
         assertEquals(view.hand, world.hands.getValue(Seat(1)))
         assertEquals(view.phase, world.phase)
         assertEquals(view.dealer, world.dealer)
         assertEquals(view.upcard, world.upcard)
         assertEquals(view.scores, world.scores)
-        (0 until PLAYER_COUNT).map(::Seat).forEach {
+        EUCHRE_SEATS.forEach {
             assertEquals(HAND_SIZE, world.hands.getValue(it).size, "seat $it")
         }
         // No duplicated cards, and the up-card is nobody's hidden card.
@@ -47,7 +52,7 @@ class DeterminizerTest {
         val view = discarded.viewOf(2) // an opponent of the dealer
         assertTrue(view.upcardTaken)
         repeat(20) { i ->
-            val world = EuchreDeterminizer(false).sample(view, freshTracker(view), Random(i.toLong()))
+            val world = EuchreDeterminizer(false).sampleWorld(view, Random(i.toLong()))
             assertTrue(
                 view.upcard in world.hands.getValue(Seat(0)),
                 "world $i should place the picked-up card with the dealer",
@@ -60,7 +65,7 @@ class DeterminizerTest {
         val r2 = rules.passToRound2(rules.newGame(1, Seat(0)))
         val view = r2.viewOf(2)
         repeat(20) { i ->
-            val world = EuchreDeterminizer(false).sample(view, freshTracker(view), Random(i.toLong()))
+            val world = EuchreDeterminizer(false).sampleWorld(view, Random(i.toLong()))
             assertTrue(world.hands.values.flatten().none { it == view.upcard }, "world $i dealt the dead card")
         }
     }
@@ -71,7 +76,7 @@ class DeterminizerTest {
         val state = rules.newGame(rules.findSeed { it.phase == EuchrePhase.FARMERS })
         val farmer = rules.currentActor(state)!!
         val view = rules.view(state, farmer)
-        val world = EuchreDeterminizer(false).sample(view, freshTracker(view), Random(2))
+        val world = EuchreDeterminizer(false).sampleWorld(view, Random(2))
         assertEquals(state.kitty.size, world.kitty.size)
         // The sampled world must accept a farmers swap without crashing.
         val swap = rules.view(world, farmer).legalActions.first { it is EuchreAction.CallFarmers }
@@ -83,7 +88,7 @@ class DeterminizerTest {
         var state = rules.act(rules.newGame(4, Seat(0)), EuchreAction.OrderUp(alone = false))
         state = rules.act(state, EuchreAction.DealerDiscard(state.hands.getValue(Seat(0)).first()))
         val view = state.viewOf(1)
-        val world = EuchreDeterminizer(false).sample(view, freshTracker(view), Random(9))
+        val world = EuchreDeterminizer(false).sampleWorld(view, Random(9))
         val bot = EuchreBot()
         val random = Random(1)
         var s = world
@@ -102,8 +107,8 @@ class DeterminizerTest {
         val view = state.viewOf(0)
         val d = EuchreDeterminizer(false)
         assertEquals(
-            d.sample(view, freshTracker(view), Random(5)),
-            d.sample(view, freshTracker(view), Random(5)),
+            d.sampleWorld(view, Random(5)),
+            d.sampleWorld(view, Random(5)),
         )
     }
 }

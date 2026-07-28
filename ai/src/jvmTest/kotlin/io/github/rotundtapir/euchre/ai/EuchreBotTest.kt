@@ -5,10 +5,12 @@ import io.github.rotundtapir.cardkit.core.Rank
 import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.cardkit.core.Suit
 import io.github.rotundtapir.cardkit.core.of
+import io.github.rotundtapir.euchre.engine.EUCHRE_SEATS
 import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
 import io.github.rotundtapir.euchre.engine.EuchreRules
+import io.github.rotundtapir.euchre.engine.HAND_SIZE
 import io.github.rotundtapir.euchre.engine.WINNING_SCORE
 import kotlin.random.Random
 import kotlin.test.Test
@@ -72,7 +74,7 @@ class EuchreBotTest {
         phase = EuchrePhase.BIDDING_ROUND_1,
         handNumber = 0,
         hand = hand,
-        handSizes = (0..3).associate { Seat(it) to 5 },
+        handSizes = EUCHRE_SEATS.associateWith { HAND_SIZE },
         dealer = Seat(dealer),
         scores = mapOf(0 to 0, 1 to 0),
         toAct = Seat(seat),

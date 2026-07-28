@@ -3,19 +3,16 @@ package io.github.rotundtapir.euchre.ai
 
 import io.github.rotundtapir.cardkit.core.Card
 import io.github.rotundtapir.cardkit.core.Joker
-import io.github.rotundtapir.cardkit.core.JokerRole
 import io.github.rotundtapir.cardkit.core.Rank
 import io.github.rotundtapir.cardkit.core.Strategy
 import io.github.rotundtapir.cardkit.core.Suit
 import io.github.rotundtapir.cardkit.core.SuitedCard
 import io.github.rotundtapir.cardkit.core.TrickEvaluator
-import io.github.rotundtapir.cardkit.core.teamOf
-import io.github.rotundtapir.cardkit.core.teammatesOf
 import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
-import io.github.rotundtapir.euchre.engine.PLAYER_COUNT
-import io.github.rotundtapir.euchre.engine.TEAM_COUNT
+import io.github.rotundtapir.euchre.engine.euchreEvaluator
+import io.github.rotundtapir.euchre.engine.partnerOf
 import kotlin.random.Random
 
 /**
@@ -47,8 +44,7 @@ class EuchreBot(private val benny: Boolean = false) : Strategy<EuchrePlayerView,
         EuchrePhase.COMPLETE -> error("No action at COMPLETE")
     }
 
-    fun evaluator(trump: Suit): TrickEvaluator =
-        TrickEvaluator(trump, if (benny) JokerRole.HIGHEST_TRUMP else JokerRole.ABSENT)
+    fun evaluator(trump: Suit): TrickEvaluator = euchreEvaluator(trump, benny)
 
     // --- Trick estimation ------------------------------------------------------------------------
 
@@ -62,7 +58,8 @@ class EuchreBot(private val benny: Boolean = false) : Strategy<EuchrePlayerView,
         val trumps = hand.filter { eval.isTrump(it) }
         var tricks = trumps.sumOf { trumpValue(it, eval) }
         val side = hand.filterIsInstance<SuitedCard>().filterNot { eval.isTrump(it) }.groupBy { it.suit }
-        for (suit in Suit.entries.filter { it != trump }) {
+        for (suit in Suit.entries) {
+            if (suit == trump) continue
             val inSuit = side[suit].orEmpty()
             if (inSuit.any { it.rank == Rank.ACE }) tricks += 0.6 // strong but ruffable
             if (inSuit.isEmpty() && trumps.size >= 2) tricks += 0.3 // void + spare trumps: a ruff
@@ -90,21 +87,18 @@ class EuchreBot(private val benny: Boolean = false) : Strategy<EuchrePlayerView,
     private fun decideRound1(view: EuchrePlayerView): EuchreAction {
         if (view.upcard is Joker) return bennyForcedCall(view)
         val trump = checkNotNull(view.upcardSuit)
-        if (view.seat == view.dealer) {
-            val kept = afterBestDiscard(view.hand + checkNotNull(view.upcard), trump)
-            val estimate = estimateTricks(kept, trump)
-            return if (estimate >= ORDER_THRESHOLD) {
-                EuchreAction.OrderUp(alone = loneWorthy(kept, trump, estimate))
-            } else {
-                EuchreAction.Pass
-            }
+        val isDealer = view.seat == view.dealer
+        // The dealer bids on the hand they would hold after taking the up-card and burying one;
+        // everyone else on the hand they hold, priced for who the trump they hand over will help.
+        val hand = if (isDealer) afterBestDiscard(view.hand + checkNotNull(view.upcard), trump) else view.hand
+        val threshold = when {
+            isDealer -> ORDER_THRESHOLD
+            view.dealer == partnerOf(view.seat) -> ORDER_THRESHOLD - POSITIONAL_ADJUST
+            else -> ORDER_THRESHOLD + POSITIONAL_ADJUST
         }
-        val estimate = estimateTricks(view.hand, trump)
-        val dealerIsPartner = view.dealer in teammatesOf(view.seat, PLAYER_COUNT, TEAM_COUNT)
-        // Ordering up hands the dealer a trump: cheaper when the dealer is our partner.
-        val threshold = ORDER_THRESHOLD + if (dealerIsPartner) -POSITIONAL_ADJUST else POSITIONAL_ADJUST
+        val estimate = estimateTricks(hand, trump)
         return if (estimate >= threshold) {
-            EuchreAction.OrderUp(alone = loneWorthy(view.hand, trump, estimate))
+            EuchreAction.OrderUp(alone = loneWorthy(hand, trump, estimate))
         } else {
             EuchreAction.Pass
         }
@@ -113,16 +107,20 @@ class EuchreBot(private val benny: Boolean = false) : Strategy<EuchrePlayerView,
     /** The dealer's forced call on a turned-up Benny Joker: best suit for the post-pickup hand. */
     private fun bennyForcedCall(view: EuchrePlayerView): EuchreAction {
         val withJoker = view.hand + Joker
-        val best = Suit.entries.maxBy { estimateTricks(afterBestDiscard(withJoker, it), it) }
-        val kept = afterBestDiscard(withJoker, best)
-        val estimate = estimateTricks(kept, best)
-        return EuchreAction.CallTrump(best, alone = loneWorthy(kept, best, estimate))
+        val (suit, kept, estimate) = Suit.entries
+            .map { suit ->
+                val kept = afterBestDiscard(withJoker, suit)
+                Triple(suit, kept, estimateTricks(kept, suit))
+            }
+            .maxBy { it.third }
+        return EuchreAction.CallTrump(suit, alone = loneWorthy(kept, suit, estimate))
     }
 
     private fun decideRound2(view: EuchrePlayerView): EuchreAction {
         val callable = view.legalActions.filterIsInstance<EuchreAction.CallTrump>().map { it.suit }.distinct()
-        val best = callable.maxByOrNull { estimateTricks(view.hand, it) } ?: return EuchreAction.Pass
-        val estimate = estimateTricks(view.hand, best)
+        val (best, estimate) = callable
+            .map { suit -> suit to estimateTricks(view.hand, suit) }
+            .maxByOrNull { it.second } ?: return EuchreAction.Pass
         val mustCall = view.legalActions.none { it is EuchreAction.Pass } // stuck dealer
         return if (estimate >= CALL_THRESHOLD || mustCall) {
             EuchreAction.CallTrump(best, alone = loneWorthy(view.hand, best, estimate))
@@ -145,18 +143,12 @@ class EuchreBot(private val benny: Boolean = false) : Strategy<EuchrePlayerView,
     /** Always swap — an all-nines-and-tens hand is near-worthless. Keep the best (same-suit) pair. */
     private fun decideFarmers(view: EuchrePlayerView): EuchreAction {
         val hand = view.hand.filterIsInstance<SuitedCard>()
-        var keep = hand.take(2)
-        var bestScore = -1
-        for (i in hand.indices) {
-            for (j in i + 1 until hand.size) {
-                val score = hand[i].rank.ordinal + hand[j].rank.ordinal +
-                    if (hand[i].suit == hand[j].suit) SAME_SUIT_BONUS else 0
-                if (score > bestScore) {
-                    bestScore = score
-                    keep = listOf(hand[i], hand[j])
-                }
+        val keep = hand.indices
+            .flatMap { i -> (i + 1 until hand.size).map { j -> listOf(hand[i], hand[j]) } }
+            .maxByOrNull { (a, b) ->
+                a.rank.ordinal + b.rank.ordinal + if (a.suit == b.suit) SAME_SUIT_BONUS else 0
             }
-        }
+            ?: hand.take(2) // fewer than two suited cards: nothing to compare
         return EuchreAction.CallFarmers(view.hand.filterNot { it in keep })
     }
 
@@ -189,14 +181,12 @@ class EuchreBot(private val benny: Boolean = false) : Strategy<EuchrePlayerView,
         if (view.currentTrick.isEmpty()) return lead(view, eval, legal)
 
         val best = view.currentTrick.maxBy { eval.strength(it.card, view.ledSuit) }
-        val partnerWinning = best.seat in teammatesOf(view.seat, PLAYER_COUNT, TEAM_COUNT)
         val bestStrength = eval.strength(best.card, view.ledSuit)
         val winners = legal.filter { eval.strength(it, view.ledSuit) > bestStrength }
-        return when {
-            partnerWinning -> legal.minBy { rawStrength(it, eval) } // let the partner take it
-            winners.isNotEmpty() -> winners.minBy { rawStrength(it, eval) } // win as cheaply as possible
-            else -> legal.minBy { rawStrength(it, eval) } // can't win: dump the lowest
-        }
+        // Let a winning partner have it; otherwise take the trick as cheaply as possible, and when
+        // it can't be taken, dump the lowest — all three are "play the weakest of these".
+        val candidates = if (best.seat == partnerOf(view.seat)) legal else winners.ifEmpty { legal }
+        return candidates.minBy { rawStrength(it, eval) }
     }
 
     private fun lead(view: EuchrePlayerView, eval: TrickEvaluator, legal: List<Card>): Card {
@@ -222,7 +212,8 @@ class EuchreBot(private val benny: Boolean = false) : Strategy<EuchrePlayerView,
         if (eval.isTrump(card)) eval.strength(card, null)
         else (card as? SuitedCard)?.rank?.ordinal ?: 0
 
-    private companion object {
+    /** Internal, not private: the tutorial's seed-search tool predicts these decisions. */
+    internal companion object {
         const val ORDER_THRESHOLD = 2.6
         const val POSITIONAL_ADJUST = 0.4
         const val CALL_THRESHOLD = 2.8

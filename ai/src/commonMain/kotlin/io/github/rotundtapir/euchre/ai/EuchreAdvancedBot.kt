@@ -5,6 +5,7 @@ import io.github.rotundtapir.cardkit.ai.MonteCarloSearch
 import io.github.rotundtapir.cardkit.ai.SearchLimits
 import io.github.rotundtapir.cardkit.ai.reduceEquivalent
 import io.github.rotundtapir.cardkit.ai.rollout
+import io.github.rotundtapir.cardkit.core.Card
 import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
@@ -88,21 +89,23 @@ class EuchreAdvancedBot(
             // Making (or defending) trump is the high-stakes decision family: keep the floor.
             else -> config.bidBudget to config.minDeterminizations
         }
+        // Everything the sampled worlds have in common, computed once for the whole decision.
+        val setup = determinizer.setup(view, tracker)
         return search.best(
-            arms = arms(view),
+            arms = arms(view, setup.knownGone),
             budget = budget,
             minWorlds = minWorlds,
-            sampleWorld = { determinizer.sample(view, tracker, random) },
+            sampleWorld = { determinizer.sample(setup, random) },
             evaluate = { world, arm -> evaluate(world, view, arm, random) },
         )
     }
 
     /** Candidate actions: everything legal, with play arms collapsed to equivalence classes. */
-    private fun arms(view: EuchrePlayerView): List<EuchreAction> {
+    private fun arms(view: EuchrePlayerView, knownGone: Set<Card>): List<EuchreAction> {
         if (view.phase != EuchrePhase.PLAY) return view.legalActions
         val legal = view.legalActions.filterIsInstance<EuchreAction.PlayCard>().map { it.card }
         if (legal.size <= 1) return legal.map { EuchreAction.PlayCard(it) }
-        val known = view.hand.toSet() + tracker.knownGone(view)
+        val known = view.hand.toSet() + knownGone
         val unseen = determinizer.deck.filterNot { it in known }
         val eval = fallback.evaluator(checkNotNull(view.trump))
         return reduceEquivalent(legal, unseen, eval).map { EuchreAction.PlayCard(it) }
@@ -124,7 +127,7 @@ class EuchreAdvancedBot(
             view.myTeam -> WIN_BONUS
             else -> -WIN_BONUS
         }
-        return (delta(view.myTeam) - delta(1 - view.myTeam)).toDouble() + winBonus
+        return (delta(view.myTeam) - delta(view.opponentTeam)).toDouble() + winBonus
     }
 
     private companion object {

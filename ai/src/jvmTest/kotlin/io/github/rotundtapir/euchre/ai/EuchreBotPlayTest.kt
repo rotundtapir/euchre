@@ -7,6 +7,7 @@ import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.cardkit.core.Suit
 import io.github.rotundtapir.cardkit.core.TrickPlay
 import io.github.rotundtapir.cardkit.core.of
+import io.github.rotundtapir.euchre.engine.EUCHRE_SEATS
 import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
@@ -30,12 +31,12 @@ class EuchreBotPlayTest {
         phase = EuchrePhase.PLAY,
         handNumber = 0,
         hand = hand,
-        handSizes = (0..3).associate { Seat(it) to hand.size },
+        handSizes = EUCHRE_SEATS.associateWith { hand.size },
         dealer = Seat(3),
         scores = mapOf(0 to 0, 1 to 0),
         toAct = Seat(seat),
         makers = Makers(maker = Seat(maker), trump = trump, orderedUp = true),
-        activeSeats = (0..3).map(::Seat),
+        activeSeats = EUCHRE_SEATS,
         leader = Seat(trick.firstOrNull()?.seat?.index ?: seat),
         currentTrick = trick,
         ledSuit = ledSuit,

@@ -8,12 +8,15 @@ import io.github.rotundtapir.cardkit.core.Suit
 import io.github.rotundtapir.cardkit.core.SuitedCard
 import io.github.rotundtapir.cardkit.core.TrickEvaluator
 import io.github.rotundtapir.cardkit.core.TrickPlay
+import io.github.rotundtapir.euchre.engine.EUCHRE_SEATS
 import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchreHandResult
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
 import io.github.rotundtapir.euchre.engine.EuchreRules
+import io.github.rotundtapir.euchre.engine.HAND_SIZE
 import io.github.rotundtapir.euchre.engine.PLAYER_COUNT
+import io.github.rotundtapir.euchre.engine.partnerOf
 import java.io.File
 import kotlin.random.Random
 import kotlin.test.Test
@@ -336,7 +339,7 @@ class TutorialTraceGenerator {
         appendLine("=== ${t.lesson.id.uppercase()} seed=${t.seed} score=${t.score} ===")
         appendLine("Dealer: ${name(t, t.dealer)} (seat ${t.dealer.index}) · up-card ${t.upcard?.label}")
         appendLine("Bots: " + t.botNames.entries.joinToString { "seat ${it.key.index}=${it.value}" })
-        (0 until PLAYER_COUNT).map(::Seat).forEach { seat ->
+        EUCHRE_SEATS.forEach { seat ->
             appendLine("  ${name(t, seat)} (seat ${seat.index}): " + t.hands.getValue(seat).joinToString { it.label })
         }
         appendLine("Bidding:")
@@ -373,14 +376,16 @@ class TutorialTraceGenerator {
 
     private companion object {
         val HUMAN = Seat(0)
-        val PARTNER = Seat(2)
+        val PARTNER = partnerOf(HUMAN)
         const val HUMAN_TEAM = 0
-        const val HAND_SIZE = 5
         const val SEARCH_LIMIT = 4000L
         const val CANDIDATES_SHOWN = 3
         const val GUARD_LIMIT = 200
-        const val ROUND2_CALL_THRESHOLD = 2.8
-        const val PASSES_BEFORE_ROUND2_CALL = 7
+        /** The bot's own round-2 bar, so the search predicts the bot it will actually run. */
+        val ROUND2_CALL_THRESHOLD = EuchreBot.CALL_THRESHOLD
+
+        /** Everyone passes round 1 and all but the caller pass round 2. */
+        const val PASSES_BEFORE_ROUND2_CALL = 2 * PLAYER_COUNT - 1
         const val EUCHRE_CEILING = 2
     }
 }
