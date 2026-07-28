@@ -144,7 +144,12 @@ jobs:
           profile: pixel_5
           emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -no-snapshot
           disable-animations: true
-          script: ./gradlew :app:connectedFossDebugAndroidTest
+          # TutorialFrameCapture is a motion-capture harness, not an assertion suite: it films the
+          # app at SLOW speed for a human (or an agent) to read back. It would spend a minute here
+          # writing PNGs nobody collects, and this job disables animations anyway.
+          script: >-
+            ./gradlew :app:connectedFossDebugAndroidTest
+            -Pandroid.testInstrumentationRunnerArguments.notClass=io.github.rotundtapir.euchre.TutorialFrameCapture
 
       - name: Upload connected-test reports
         if: failure()

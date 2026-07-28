@@ -45,9 +45,22 @@ import org.junit.runner.RunWith
  * animation's own pacing uses `delay`, which the virtual clock does not drive.
  *
  * Runs at [ANIMATION_SPEED] rather than OFF, which is the whole point: OFF short-circuits the code
- * under inspection. That makes this the one suite here that is *about* motion, so it is excluded
- * from the CI run (see the `-Pandroid.testInstrumentationRunnerArguments.notClass` in
- * `scripts/capture-tutorial-frames.sh`) and driven by hand when a motion bug needs pinning down.
+ * under inspection. That makes this the one suite here that is *about* motion, so CI skips it
+ * (`notClass=` on the android-e2e job in `.github/workflows/ci.yml`) and it is driven by hand when
+ * a motion bug needs pinning down:
+ *
+ * ```
+ * ./gradlew :app:assembleFossDebug :app:assembleFossDebugAndroidTest
+ * adb install -r -g app/build/outputs/apk/foss/debug/app-foss-debug.apk
+ * adb install -r -g app/build/outputs/apk/androidTest/foss/debug/app-foss-debug-androidTest.apk
+ * adb shell am instrument -w -e class io.github.rotundtapir.euchre.TutorialFrameCapture \
+ *   io.github.rotundtapir.euchre.test/androidx.test.runner.AndroidJUnitRunner
+ * adb pull /sdcard/Android/data/io.github.rotundtapir.euchre/files/frames .
+ * python3 scripts/frame-signatures.py frames
+ * ```
+ *
+ * `am instrument` rather than the Gradle task deliberately: connectedAndroidTest uninstalls the app
+ * when it finishes, and the frames live in the app's own external files dir, so they go with it.
  */
 @RunWith(AndroidJUnit4::class)
 class TutorialFrameCapture {
