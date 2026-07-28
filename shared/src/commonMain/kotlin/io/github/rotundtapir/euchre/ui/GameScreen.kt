@@ -238,9 +238,11 @@ private fun rememberDealGate(
     // running effect holding a stale one.
     val currentFinish by rememberUpdatedState(onDealAnimationFinish)
     val currentAwaitAck by rememberUpdatedState(awaitResultAck)
-    // Saveable so an activity recreation doesn't replay a deal that already ran.
-    var lastAnimatedHand by rememberSaveable { mutableIntStateOf(0) }
-    var dealtHand by rememberSaveable { mutableIntStateOf(0) }
+    // Saveable so an activity recreation doesn't replay a deal that already ran. NO_HAND, not 0:
+    // hands are numbered from zero, so a zero sentinel reads as "hand 0 has already been dealt" and
+    // the first deal of a game — the one every player sees — is skipped as if it were a recreation.
+    var lastAnimatedHand by rememberSaveable { mutableIntStateOf(NO_HAND) }
+    var dealtHand by rememberSaveable { mutableIntStateOf(NO_HAND) }
     LaunchedEffect(view.handNumber) {
         if (animationSpeed == AnimationSpeed.OFF) return@LaunchedEffect
         if (view.handNumber == lastAnimatedHand) {
@@ -272,3 +274,6 @@ private fun rememberDealGate(
     }
     return dealtHand
 }
+
+/** Before any hand has been animated. Below every real hand number, which start at zero. */
+private const val NO_HAND = -1
