@@ -2,8 +2,10 @@
 package io.github.rotundtapir.euchre.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -47,6 +50,7 @@ import io.github.rotundtapir.cardkit.ui.SuitText
 import io.github.rotundtapir.cardkit.ui.cardFaceShape
 import io.github.rotundtapir.cardkit.ui.clickableWhen
 import io.github.rotundtapir.cardkit.ui.deal.DealAnimationState
+import io.github.rotundtapir.cardkit.ui.deal.DealStage
 import io.github.rotundtapir.cardkit.ui.deal.OpponentPile
 import io.github.rotundtapir.cardkit.ui.deal.ShufflingDeck
 import io.github.rotundtapir.cardkit.ui.deal.dealAnchor
@@ -199,34 +203,57 @@ private fun OpponentStatus(
         if (isPartner) {
             Text("(partner)", style = MaterialTheme.typography.labelSmall, color = nameColor)
         }
-        if (sittingOut) {
-            Text("(sitting out)", style = MaterialTheme.typography.labelSmall)
-        } else {
-            OpponentPile(seat = seat, state = dealState, width = 44.dp, handSize = view.handSizes[seat] ?: 0)
+        // The pile's footprint is held even for a seat that is sitting out, so a lone hand does
+        // not shorten this row — which would hand the felt below extra height and rescale every
+        // card on it, mid-hand.
+        Box(
+            modifier = Modifier.heightIn(min = OPPONENT_PILE_HEIGHT),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (sittingOut) {
+                Text("(sitting out)", style = MaterialTheme.typography.labelSmall)
+            } else {
+                OpponentPile(
+                    seat = seat,
+                    state = dealState,
+                    width = OPPONENT_PILE_WIDTH,
+                    handSize = view.handSizes[seat] ?: 0,
+                )
+            }
         }
         Text("tricks: ${view.tricksWon[seat] ?: 0}", style = MaterialTheme.typography.labelSmall)
         BiddingStatus(view, seat)
     }
 }
 
-/** What this seat did in the auction, kept on screen through the bidding phases. */
+/**
+ * What this seat did in the auction, kept on screen through the bidding phases. The line is blank
+ * rather than absent once trump is made: dropping it would shorten every seat's column and move
+ * the felt underneath.
+ */
 @Composable
 private fun BiddingStatus(view: EuchrePlayerView, seat: Seat) {
-    if (view.makers != null || view.phase == EuchrePhase.COMPLETE) return
     val last = view.biddingHistory.lastOrNull { it.first == seat }?.second
     SuitText(
-        when (last) {
-            null -> "—"
-            is EuchreAction.Pass -> "passed"
-            is EuchreAction.OrderUp -> "ordered up"
-            is EuchreAction.CallTrump -> "called ${last.suit.symbol}"
-            is EuchreAction.CallFarmers -> "swapped 3"
-            is EuchreAction.DeclineFarmers -> "stood pat"
-            else -> "—"
+        when {
+            view.makers != null || view.phase == EuchrePhase.COMPLETE -> ""
+            else -> auctionAction(last)
         },
         style = MaterialTheme.typography.labelSmall,
     )
 }
+
+/** How a seat's last auction action reads under their name. */
+private fun auctionAction(last: EuchreAction?): String =
+    when (last) {
+        null -> "—"
+        is EuchreAction.Pass -> "passed"
+        is EuchreAction.OrderUp -> "ordered up"
+        is EuchreAction.CallTrump -> "called ${last.suit.symbol}"
+        is EuchreAction.CallFarmers -> "swapped 3"
+        is EuchreAction.DeclineFarmers -> "stood pat"
+        else -> "—"
+    }
 
 /**
  * The felt: the table centre where the deal, the up-card and the current trick live.
@@ -269,7 +296,7 @@ fun TrickArea(
         val byHeight = (maxHeight - 40.dp) / CardAspectRatio
         val cardWidth = minOf(byWidth, byHeight).coerceIn(56.dp, 96.dp)
         when {
-            dealState.dealing -> DealFelt(dealState, cardWidth)
+            dealState.dealing -> DealFelt(view, dealState, cardWidth)
             view.phase == EuchrePhase.PLAY ->
                 PlayFelt(view, botNames, cardWidth, holdingTrick && !hideTapHint)
             else -> UpCardSpot(view, dealState, cardWidth)
@@ -277,18 +304,31 @@ fun TrickArea(
     }
 }
 
-/** Shuffle/deal stage: the deck the packets fly from, beside the up-card slot they end at. */
+/**
+ * Shuffle/deal stage: the deck the packets fly from, above the spot the turn card lands on.
+ *
+ * The deck leaves by collapsing and fading rather than blinking out, and the spot below it is the
+ * very same [UpCardSpot] the auction renders — so once the deck is gone the turn card is already
+ * exactly where the auction will keep it, and the felt never jumps between the two stages.
+ */
 @Composable
-private fun DealFelt(dealState: DealAnimationState, cardWidth: Dp) {
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        ShufflingDeck(dealState)
-        Box(
-            modifier = Modifier
-                .size(cardWidth, cardWidth * CardAspectRatio)
-                .dealAnchor(dealState, UpcardTarget),
+private fun DealFelt(view: EuchrePlayerView, dealState: DealAnimationState, cardWidth: Dp) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        AnimatedVisibility(
+            visible = dealState.stage == DealStage.SHUFFLING || dealState.stage == DealStage.DEALING,
+            exit = shrinkVertically() + fadeOut(),
         ) {
-            if (dealState.countFor(UpcardTarget) > 0) CardBack(width = cardWidth)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    if (dealState.stage == DealStage.SHUFFLING) "Shuffling…" else "Dealing…",
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.height(12.dp))
+                ShufflingDeck(dealState)
+                Spacer(Modifier.height(16.dp))
+            }
         }
+        UpCardSpot(view, dealState, cardWidth)
     }
 }
 
@@ -301,32 +341,54 @@ private fun DealFelt(dealState: DealAnimationState, cardWidth: Dp) {
 @Composable
 private fun UpCardSpot(view: EuchrePlayerView, dealState: DealAnimationState, cardWidth: Dp) {
     val upcard = view.upcard
+    // During the deal the stock only exists once its packet has actually landed here.
+    val landed = !dealState.dealing || dealState.countFor(UpcardTarget) > 0
     val faceUp = view.phase == EuchrePhase.BIDDING_ROUND_1 || view.phase == EuchrePhase.FARMERS
-    val showFace = upcard != null && faceUp && !view.upcardTaken
+    val showFace = upcard != null && faceUp && !view.upcardTaken && !dealState.dealing
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.Center) {
+            // The spot holds its full footprint from the first frame of the deal, so neither the
+            // card landing nor the face turning over shifts anything else on the felt.
+            Spacer(Modifier.size(cardWidth + STOCK_PEEK, cardWidth * CardAspectRatio + STOCK_PEEK))
             // The stock the turn card sits on; also the anchor the deal's last packet flies to. It
             // is nudged out from behind the face-up card, and sits square once nothing is on it.
             Box(Modifier.peekingOut(showFace).dealAnchor(dealState, UpcardTarget)) {
-                CardBack(width = cardWidth)
+                if (landed) CardBack(width = cardWidth)
             }
-            if (showFace) PlayingCard(checkNotNull(upcard), width = cardWidth)
+            upcard?.let { card -> FadingTurnCard(showFace, card, cardWidth) }
         }
         Spacer(Modifier.height(6.dp))
-        SuitText(upCardCaption(view, showFace), style = MaterialTheme.typography.labelMedium)
+        SuitText(upCardCaption(view, showFace, dealState.dealing), style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+/**
+ * The turn card's face: it fades up when the deal ends and fades away when the card is taken or
+ * turned down, rather than snapping in and out. Its own composable because the fading overload
+ * cannot be called from inside the spot's Box while a Column receiver is in scope.
+ */
+@Composable
+private fun FadingTurnCard(visible: Boolean, card: Card, cardWidth: Dp) {
+    AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
+        PlayingCard(card, width = cardWidth)
     }
 }
 
 /** Nudged out from behind the card it sits under; square when it stands alone. */
 private fun Modifier.peekingOut(behindACard: Boolean): Modifier =
-    if (behindACard) padding(start = 10.dp, top = 10.dp) else this
+    if (behindACard) padding(start = STOCK_PEEK, top = STOCK_PEEK) else this
+
+/** How far the stock shows from behind the face-up turn card. */
+private val STOCK_PEEK = 10.dp
 
 /**
  * What the stock is doing right now. Once the turn card is refused by all four it goes back under
  * the stock face down, as at a table — so the caption carries the only thing still in play about
  * it: its suit, the one suit round 2 may not name.
  */
-private fun upCardCaption(view: EuchrePlayerView, showFace: Boolean): String = when {
+private fun upCardCaption(view: EuchrePlayerView, showFace: Boolean, dealing: Boolean): String = when {
+    // Nothing to say mid-deal, but the line keeps its height so the felt does not shift.
+    dealing -> ""
     showFace -> "turn card"
     view.upcardTaken -> "Up-card taken"
     view.phase == EuchrePhase.BIDDING_ROUND_2 ->
@@ -430,6 +492,10 @@ private fun TrickSlot(
         )
     }
 }
+
+/** The face-down pile drawn beside each opponent, and the row height it claims. */
+private val OPPONENT_PILE_WIDTH = 44.dp
+private val OPPONENT_PILE_HEIGHT = OPPONENT_PILE_WIDTH * CardAspectRatio + 8.dp
 
 /** How far a played card's name label may overhang its card before it ellipsizes. */
 private val NAME_OVERHANG = 16.dp

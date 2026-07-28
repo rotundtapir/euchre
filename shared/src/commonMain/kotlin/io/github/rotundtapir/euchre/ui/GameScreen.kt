@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
@@ -21,9 +22,12 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.cardkit.monetization.Monetization
@@ -89,6 +93,10 @@ fun GameScreen(
     // Screen rects of the lesson's interaction targets (a button, a card, the felt), for the bubble.
     val tutorialAnchors = if (tutorial != null) remember { TutorialAnchors() } else null
 
+    // The tallest the hand area has had to be this game; see the Box that measures it below.
+    val density = LocalDensity.current
+    var handAreaFloor by remember { mutableStateOf(0.dp) }
+
     val dealState = remember { DealAnimationState() }
     dealState.soundHook = soundHook
     val dealtHand = rememberDealGate(view, animationSpeed, dealState, onDealAnimationFinish) { handNumber ->
@@ -131,26 +139,45 @@ fun GameScreen(
                     hideTapHint = tutorial != null,
                     anchors = tutorialAnchors,
                 )
-                when {
-                    dealState.dealing -> DealingHandRow(
-                        cards = rememberDisplayHand(view, sortHand),
-                        state = dealState,
-                        humanSeat = view.seat,
-                        timings = dealTimings(animationSpeed),
-                    )
-                    // A fresh hand whose shuffle is still held behind the result dialog: keep the
-                    // new cards and the bidding buttons off screen until the deal actually runs.
-                    animationSpeed != AnimationSpeed.OFF && view.handNumber > dealtHand ->
-                        Box(Modifier.fillMaxWidth())
-                    else -> ActionArea(
-                        view = view,
-                        botNames = botNames,
-                        sortHand = sortHand,
-                        onToggleSort = { sortHand = !sortHand },
-                        onAction = onAction,
-                        tutorial = tutorial,
-                        anchors = tutorialAnchors,
-                    )
+                // The hand area's three states are different heights — the dealing row, the blank
+                // held behind a result dialog, and whichever action panel the phase calls for (the
+                // bidding ones carry a go-alone toggle the others don't). Since the felt above
+                // takes whatever height is left, every one of those changes used to move the felt
+                // and rescale every card on it. So the area keeps the tallest height it has needed
+                // so far: it grows at most a few times early in a game and then holds still. A
+                // measured floor rather than a hard-coded one, so it follows the device's text
+                // size and the player's display scaling.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = handAreaFloor)
+                        .onSizeChanged { size ->
+                            val height = with(density) { size.height.toDp() }
+                            if (height > handAreaFloor) handAreaFloor = height
+                        },
+                    contentAlignment = Alignment.TopCenter,
+                ) {
+                    when {
+                        dealState.dealing -> DealingHandRow(
+                            cards = rememberDisplayHand(view, sortHand),
+                            state = dealState,
+                            humanSeat = view.seat,
+                            timings = dealTimings(animationSpeed),
+                        )
+                        // A fresh hand whose shuffle is still held behind the result dialog: keep
+                        // the new cards and the bidding buttons off screen until the deal runs.
+                        animationSpeed != AnimationSpeed.OFF && view.handNumber > dealtHand ->
+                            Box(Modifier.fillMaxWidth())
+                        else -> ActionArea(
+                            view = view,
+                            botNames = botNames,
+                            sortHand = sortHand,
+                            onToggleSort = { sortHand = !sortHand },
+                            onAction = onAction,
+                            tutorial = tutorial,
+                            anchors = tutorialAnchors,
+                        )
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 monetization.BannerSlot(Modifier.fillMaxWidth())
