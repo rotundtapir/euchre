@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception
 pluginManagement {
     repositories {
         google {
@@ -65,3 +66,4 @@ includeBuild("cardkit")
 include(":engine")
 include(":ai")
 include(":shared")
+include(":app")
