@@ -77,9 +77,12 @@ abstract class EuchreUiTest {
         rule.onAllNodes(hasTestTagPrefix(prefix), useUnmergedTree = true).fetchSemanticsNodes()
 
     /**
-     * Cards in the human's fan. Uses the game's own `hand:` prefix rather than cardkit's `card:`,
-     * which is applied to every card cardkit draws — the nested image inside each of these cards
-     * included, as well as the trick, the up-card and `CardArtWarmup`'s off-screen deck.
+     * Cards in the human's fan, counted via the game's own `hand:` prefix and scoped to the fan.
+     *
+     * Not cardkit's `ck:card:` — that lands on every card cardkit draws, the nested face inside
+     * each of these cards included, so it counts the table rather than the hand. Both guards are
+     * kept deliberately: an unmerged-tree finder also sees through `clearAndSetSemantics`, so a
+     * bare prefix query would pick up any warmed-but-invisible cards too.
      */
     protected fun cardsInHand(): Int = rule.onAllNodes(
         hasTestTagPrefix(HAND_CARD_TAG_PREFIX) and hasAnyAncestor(hasTestTag(HUMAN_HAND_TAG)),

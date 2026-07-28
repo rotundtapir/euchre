@@ -408,10 +408,11 @@ const val HUMAN_HAND_TAG = "humanHand"
 /**
  * Test-tag prefix for a card in the human's fan, e.g. `hand:JS`.
  *
- * Deliberately NOT `card:` — cardkit's `PlayingCard` already tags every card it draws
- * `card:<label>`, including the nested image inside each of these very cards, plus the trick, the
- * up-card and `CardArtWarmup`'s off-screen deck. Sharing that prefix made every hand query
- * ambiguous.
+ * Distinct from cardkit's own `CardTestTagPrefix` (`ck:card:`) by design, not by accident: that tag
+ * is on every card cardkit draws — the nested face inside each of these very cards, the trick, the
+ * up-card — so a query for it is table-wide, whereas this one means "in hand". It is also keyed by
+ * [io.github.rotundtapir.cardkit.core.Card.code] where cardkit keys by label, which is exactly the
+ * kind of near-miss that reads as interchangeable and is not.
  */
 const val HAND_CARD_TAG_PREFIX = "hand:"
 
