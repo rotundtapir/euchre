@@ -30,6 +30,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -285,16 +286,22 @@ fun TrickArea(
             .fillMaxWidth()
             .padding(vertical = 12.dp)
             .background(Color(0x22000000), RoundedCornerShape(16.dp))
+            .testTag(FELT_TAG)
             .tutorialTarget(anchors, TRICK_ANCHOR)
             .clickableWhen(holdingTrick) { onTrickAcknowledge(view.handNumber, view.trickNumber) },
         contentAlignment = Alignment.Center,
     ) {
         // Size the cards from the felt itself so a full trick (with its name labels) always fits,
-        // but empty space is used rather than wasted.
+        // but empty space is used rather than wasted — then decide that size ONCE per hand and hold
+        // it. The felt still breathes a few dp as the panels below it change, and re-deriving the
+        // size from a moving height is what makes every card on the table twitch: geometry is
+        // decided from the first measurement and later arrivals never resize what is already drawn.
         val slots = view.activeSeats.size.coerceAtLeast(2)
-        val byWidth = (maxWidth - 16.dp - 8.dp * (slots - 1)) / slots
-        val byHeight = (maxHeight - 40.dp) / CardAspectRatio
-        val cardWidth = minOf(byWidth, byHeight).coerceIn(56.dp, 96.dp)
+        val cardWidth = remember(view.handNumber, slots, maxWidth) {
+            val byWidth = (maxWidth - FELT_INSET - TRICK_SLOT_GAP * (slots - 1)) / slots
+            val byHeight = (maxHeight - TRICK_LABEL_ROOM) / CardAspectRatio
+            minOf(byWidth, byHeight).coerceIn(MIN_TRICK_CARD, MAX_TRICK_CARD)
+        }
         when {
             dealState.dealing -> DealFelt(view, dealState, cardWidth)
             view.phase == EuchrePhase.PLAY ->
@@ -492,6 +499,18 @@ private fun TrickSlot(
         )
     }
 }
+
+/** Tags the felt, so tests can assert it holds its place as the phases change. */
+const val FELT_TAG = "felt"
+
+/** Felt padding, the gap between trick slots, and the room a slot's name label needs below it. */
+private val FELT_INSET = 16.dp
+private val TRICK_SLOT_GAP = 8.dp
+private val TRICK_LABEL_ROOM = 40.dp
+
+/** The trick cards never shrink past unreadable, nor grow past the felt's proportions. */
+private val MIN_TRICK_CARD = 56.dp
+private val MAX_TRICK_CARD = 96.dp
 
 /** The face-down pile drawn beside each opponent, and the row height it claims. */
 private val OPPONENT_PILE_WIDTH = 44.dp
