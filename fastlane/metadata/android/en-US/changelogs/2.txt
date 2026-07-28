@@ -1,0 +1,8 @@
+Mostly an internal cleanup release, with a few visible fixes:
+
+- Back from a lesson's intro pages returns to the lesson picker, not out of the tutorial.
+- Suit symbols on the bidding buttons keep their true colours (clubs and spades were green).
+- Discard and Swap stay readable on the felt while disabled.
+- The browser version starts faster: it no longer loads cards Euchre never deals.
+
+Under the hood: the engine, bots and table UI were refactored, with more shared code moved into cardkit.
