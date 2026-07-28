@@ -23,6 +23,7 @@ kotlin {
         }
         jvmTest.dependencies {
             implementation(kotlin("test"))
+            implementation(libs.cardkit.testing) // legality-asserting match driver + seed search
             implementation(libs.junit.jupiter)
             implementation(libs.kotlinx.coroutines.test)
             runtimeOnly(libs.junit.platform.launcher)

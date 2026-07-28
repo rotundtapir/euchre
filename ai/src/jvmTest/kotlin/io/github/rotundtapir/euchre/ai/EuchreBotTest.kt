@@ -5,11 +5,13 @@ import io.github.rotundtapir.cardkit.core.Rank
 import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.cardkit.core.Suit
 import io.github.rotundtapir.cardkit.core.of
+import io.github.rotundtapir.cardkit.testing.drive
 import io.github.rotundtapir.euchre.engine.EUCHRE_SEATS
 import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
 import io.github.rotundtapir.euchre.engine.EuchreRules
+import io.github.rotundtapir.euchre.engine.EuchreState
 import io.github.rotundtapir.euchre.engine.HAND_SIZE
 import io.github.rotundtapir.euchre.engine.WINNING_SCORE
 import kotlin.random.Random
@@ -21,20 +23,11 @@ import kotlin.test.assertIs
 
 class EuchreBotTest {
 
-    private fun playMatch(rules: EuchreRules, seed: Long): io.github.rotundtapir.euchre.engine.EuchreState {
+    /** A whole match with the heuristic at every seat; the driver asserts each choice was legal. */
+    private fun playMatch(rules: EuchreRules, seed: Long): EuchreState {
         val bot = EuchreBot(rules.bennyEnabled)
         val random = Random(seed)
-        var state = rules.newGame(seed)
-        var steps = 0
-        while (!rules.isTerminal(state)) {
-            check(steps++ < 100_000) { "Match did not terminate" }
-            val actor = checkNotNull(rules.currentActor(state))
-            val view = rules.view(state, actor)
-            val action = bot.decide(view, random)
-            assertTrue(action in view.legalActions, "illegal $action in ${state.phase}")
-            state = rules.apply(state, actor, action)
-        }
-        return state
+        return drive(rules, rules.newGame(seed)) { view, _ -> bot.decide(view, random) }
     }
 
     @Test

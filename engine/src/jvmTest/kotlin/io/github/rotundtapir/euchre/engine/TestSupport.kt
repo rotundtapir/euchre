@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception
 package io.github.rotundtapir.euchre.engine
 
+import io.github.rotundtapir.cardkit.testing.driveRandomly
+import io.github.rotundtapir.cardkit.testing.findSeed as findSeedWhere
 import kotlin.random.Random
 
 /** Applies [action] as whoever is to act. */
@@ -15,31 +17,14 @@ fun EuchreRules.passToRound2(state: EuchreState): EuchreState {
     return s
 }
 
-/** The first seed at or after [from] whose fresh deal satisfies [predicate]. */
-fun EuchreRules.findSeed(from: Long = 0, limit: Long = 500_000, predicate: (EuchreState) -> Boolean): Long {
-    var seed = from
-    while (seed < from + limit) {
-        if (predicate(newGame(seed))) return seed
-        seed++
-    }
-    error("No seed in [$from, ${from + limit}) satisfies the predicate")
-}
+/** The first seed in [seeds] whose fresh deal satisfies [predicate]. */
+fun EuchreRules.findSeed(seeds: LongRange = 0L..500_000L, predicate: (EuchreState) -> Boolean): Long =
+    findSeedWhere(seeds) { seed -> predicate(newGame(seed)) }
 
 /**
- * Plays a whole match by choosing uniformly random legal actions for every seat. Every step
- * validates that the chosen action came from the view's own legalActions, so a full run doubles
- * as a legality sweep.
+ * Plays a whole match with uniformly random legal actions. cardkit-testing's driver asserts on
+ * every step that an actor exists, that it has legal actions, and that the chosen action came from
+ * that seat's own view — so a full run doubles as a legality sweep.
  */
-fun EuchreRules.randomMatch(seed: Long, actionSeed: Long = seed, maxSteps: Int = 100_000): EuchreState {
-    val random = Random(actionSeed)
-    var state = newGame(seed)
-    var steps = 0
-    while (!isTerminal(state)) {
-        check(steps++ < maxSteps) { "Match did not terminate within $maxSteps steps" }
-        val actor = checkNotNull(currentActor(state))
-        val legal = view(state, actor).legalActions
-        check(legal.isNotEmpty()) { "Actor $actor has no legal actions in ${state.phase}" }
-        state = apply(state, actor, legal.random(random))
-    }
-    return state
-}
+fun EuchreRules.randomMatch(seed: Long, actionSeed: Long = seed, maxSteps: Int = 100_000): EuchreState =
+    driveRandomly(this, newGame(seed), Random(actionSeed), maxSteps)

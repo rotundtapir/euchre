@@ -21,6 +21,7 @@ kotlin {
         }
         jvmTest.dependencies {
             implementation(kotlin("test"))
+            implementation(libs.cardkit.testing) // legality-asserting match driver + seed search
             implementation(libs.junit.jupiter)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.kotlinx.serialization.json) // EuchreState snapshot round-trip test

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception
 package io.github.rotundtapir.euchre.ai
 
+import io.github.rotundtapir.cardkit.testing.findSeed as findSeedWhere
 import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchreRules
@@ -19,12 +20,9 @@ fun EuchreRules.passToRound2(state: EuchreState): EuchreState {
     return s
 }
 
-/** The first seed at or after [from] whose fresh deal satisfies [predicate]. */
-fun EuchreRules.findSeed(from: Long = 0, limit: Long = 500_000, predicate: (EuchreState) -> Boolean): Long {
-    var seed = from
-    while (seed < from + limit) {
-        if (predicate(newGame(seed))) return seed
-        seed++
-    }
-    error("No seed in [$from, ${from + limit}) satisfies the predicate")
-}
+/**
+ * The first seed in [seeds] whose fresh deal satisfies [predicate]. The search is cardkit's; only
+ * "what a fresh Euchre deal looks like" is game-side.
+ */
+fun EuchreRules.findSeed(seeds: LongRange = 0L..500_000L, predicate: (EuchreState) -> Boolean): Long =
+    findSeedWhere(seeds) { seed -> predicate(newGame(seed)) }

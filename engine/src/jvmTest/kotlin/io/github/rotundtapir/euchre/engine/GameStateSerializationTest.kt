@@ -2,6 +2,7 @@
 package io.github.rotundtapir.euchre.engine
 
 import io.github.rotundtapir.cardkit.core.Seat
+import io.github.rotundtapir.cardkit.testing.driveRandomly
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -28,16 +29,11 @@ class GameStateSerializationTest {
         )
         val random = Random(5)
         val phasesSeen = mutableSetOf<EuchrePhase>()
-        var state = rules.newGame(5)
-        var steps = 0
-        while (!rules.isTerminal(state) && steps++ < 20_000) {
+        // Every state the match passes through, including the terminal one, must round-trip.
+        driveRandomly(rules, rules.newGame(5), random) { state ->
             phasesSeen += state.phase
             assertEquals(state, roundTrip(state))
-            val actor = rules.currentActor(state)!!
-            state = rules.apply(state, actor, rules.view(state, actor).legalActions.random(random))
         }
-        assertEquals(state, roundTrip(state))
-        phasesSeen += state.phase
         assertTrue(EuchrePhase.PLAY in phasesSeen && EuchrePhase.COMPLETE in phasesSeen)
     }
 
