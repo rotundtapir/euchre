@@ -8,10 +8,24 @@ One-time setup and the release gate, in order. Mirrors 500's release process.
 
 - [x] **GitHub Pages** — enabled 2026-07-28, source "GitHub Actions", HTTPS enforced.
       Publishes to <https://rotundtapir.github.io/euchre/> from the `deploy-web` job on `v*` tags.
-- [ ] **Signing keystore** (new key, do NOT reuse 500's): generate, then add repo secrets
-      `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. Absent, release builds
-      are unsigned — correct for F-Droid, but the APK attached to the GitHub release is unsigned
-      too, and `verify-reproducible` has no signed artifact to compare against.
+- [x] **Signing keystore** — created 2026-07-28 at `~/keystores/euchre-release.jks` (its own fresh
+      key, deliberately NOT 500's), and the four repo secrets `KEYSTORE_BASE64`,
+      `KEYSTORE_PASSWORD`, `KEY_ALIAS` (`euchre`), `KEY_PASSWORD` are set. Key parameters match
+      500's cert so the two pipelines stay uniform: RSA 4096, SHA384withRSA, same DN
+      (`C=GB, ST=Unknown, L=Unknown, O=Rotund Tapir, OU=Unknown, CN=Jack de Kleuver`); validity
+      runs 30 years to 2056 (500's ends 2053 — longer is safer for an unrotatable key).
+
+      Signing stays *optional* in `app/build.gradle.kts`: with `KEYSTORE_FILE` unset the release
+      build is unsigned, which is correct and load-bearing for local builds and for F-Droid, whose
+      reproducible flow signs and compares on its own.
+
+      **Certificate SHA-256** (public — this becomes `AllowedAPKSigningKeys` in a future fdroiddata
+      recipe):
+      `668393be0bc620d27bb00557429f626935a7dab2d6aa23fa35c5f0bb4971155f`
+
+      > **Jack:** `~/keystores/` needs an OFFLINE backup — the key is unrecoverable and
+      > unrotatable once an APK ships. Move the two password files into your password manager,
+      > after which the plaintext copies can be deleted (CI has its own copies in the secrets).
 - [ ] **Launcher icon + fastlane images**: replace the generated placeholder icon in
       `app/src/main/res/mipmap-*` with the final artwork; add the feature graphic and phone screenshots.
 
