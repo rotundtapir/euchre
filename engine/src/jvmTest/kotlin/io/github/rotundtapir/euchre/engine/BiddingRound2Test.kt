@@ -38,7 +38,7 @@ class BiddingRound2Test {
         assertEquals(Seat(1), makers.maker)
         assertEquals(suit, makers.trump)
         assertFalse(makers.orderedUp)
-        assertEquals(allSeats(), play.activeSeats)
+        assertEquals(EUCHRE_SEATS, play.activeSeats)
         assertEquals(Seat(1), play.leader) // left of dealer leads
         assertEquals(5, play.hands.getValue(Seat(0)).size) // no pickup in round 2
     }

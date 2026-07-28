@@ -68,7 +68,7 @@ class FarmersHandTest {
         val state = farmersDeal()
         val farmer = rules.currentActor(state)!!
         val swapped = rules.apply(state, farmer, EuchreAction.CallFarmers(state.hands.getValue(farmer).take(3)))
-        val other = allSeats().first { it != farmer }
+        val other = EUCHRE_SEATS.first { it != farmer }
         val redacted = rules.view(swapped, other).biddingHistory.single().second
         assertEquals(EuchreAction.CallFarmers(emptyList()), redacted)
         val own = rules.view(swapped, farmer).biddingHistory.single().second

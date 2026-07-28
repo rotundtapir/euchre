@@ -50,7 +50,7 @@ class BennyTest {
             ),
             bidding = EuchreBiddingState(toAct = Seat(1)),
             makers = makers,
-            activeSeats = allSeats(),
+            activeSeats = EUCHRE_SEATS,
             leader = Seat(1),
             trickNumber = TRICKS_PER_HAND - 1,
             tricksWon = mapOf(Seat(0) to 2, Seat(1) to 2, Seat(2) to 0, Seat(3) to 0),

@@ -47,7 +47,7 @@ class EuchreRulesTest {
         var steps = 0
         while (!rules.isTerminal(state) && steps++ < 200) {
             val actor = rules.currentActor(state)!!
-            for (seat in allSeats()) {
+            for (seat in EUCHRE_SEATS) {
                 val view = rules.view(state, seat)
                 assertEquals(state.hands[seat].orEmpty(), view.hand)
                 // The view type has no field for other hands or the kitty; check sizes only.

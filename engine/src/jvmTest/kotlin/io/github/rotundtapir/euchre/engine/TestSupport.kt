@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception
 package io.github.rotundtapir.euchre.engine
 
-import io.github.rotundtapir.cardkit.core.Seat
 import kotlin.random.Random
 
 /** Applies [action] as whoever is to act. */
@@ -44,5 +43,3 @@ fun EuchreRules.randomMatch(seed: Long, actionSeed: Long = seed, maxSteps: Int =
     }
     return state
 }
-
-fun allSeats(): List<Seat> = (0 until PLAYER_COUNT).map(::Seat)

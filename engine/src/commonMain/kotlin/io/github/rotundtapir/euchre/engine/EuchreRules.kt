@@ -4,19 +4,15 @@ package io.github.rotundtapir.euchre.engine
 import io.github.rotundtapir.cardkit.core.Card
 import io.github.rotundtapir.cardkit.core.GameRules
 import io.github.rotundtapir.cardkit.core.Joker
-import io.github.rotundtapir.cardkit.core.JokerRole
 import io.github.rotundtapir.cardkit.core.Rank
 import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.cardkit.core.Suit
 import io.github.rotundtapir.cardkit.core.SuitedCard
 import io.github.rotundtapir.cardkit.core.TrickEvaluator
 import io.github.rotundtapir.cardkit.core.TrickPlay
-import io.github.rotundtapir.cardkit.core.deal
 import io.github.rotundtapir.cardkit.core.nextSeat
-import io.github.rotundtapir.cardkit.core.playOrder
-import io.github.rotundtapir.cardkit.core.shuffleWith
+import io.github.rotundtapir.cardkit.core.shuffleAndDeal
 import io.github.rotundtapir.cardkit.core.teamOf
-import io.github.rotundtapir.cardkit.core.teammatesOf
 import kotlin.random.Random
 
 /** The next hand's seed, derived deterministically so one seed drives a whole match. */
@@ -38,6 +34,12 @@ class EuchreRules(
     val bennyEnabled: Boolean = false,
     val farmersHandEnabled: Boolean = false,
 ) : GameRules<EuchreState, EuchreAction, EuchrePlayerView> {
+
+    /**
+     * This table's deck, built once. Shuffling copies, so every deal draws from it without
+     * mutating it — worth hoisting because a Monte-Carlo rollout deals a hand per playout.
+     */
+    private val deck: List<Card> = euchreDeck(bennyEnabled)
 
     fun newGame(seed: Long, firstDealer: Seat = Seat(0)): EuchreState =
         dealHand(seed, firstDealer, handNumber = 0, scores = mapOf(0 to 0, 1 to 0))
@@ -63,14 +65,7 @@ class EuchreRules(
         upcard = state.upcard,
         upcardSuit = state.upcardSuit,
         upcardTaken = state.upcardTaken,
-        biddingHistory = state.bidding.history.map { (actor, action) ->
-            // A farmers swap's cards are buried face-down: visible only to the seat that swapped.
-            if (action is EuchreAction.CallFarmers && actor != seat) {
-                actor to EuchreAction.CallFarmers(emptyList())
-            } else {
-                actor to action
-            }
-        },
+        biddingHistory = redactedHistory(state, seat),
         makers = state.makers,
         activeSeats = state.activeSeats,
         leader = state.leader,
@@ -85,16 +80,33 @@ class EuchreRules(
         winner = state.winner,
     )
 
+    /**
+     * The auction log as [seat] may see it: a farmers swap's cards are buried face-down, visible
+     * only to the seat that swapped. With nothing to hide — the overwhelmingly common case, since
+     * the house rule is off by default — the list is shared rather than rebuilt for every view.
+     */
+    private fun redactedHistory(state: EuchreState, seat: Seat): List<Pair<Seat, EuchreAction>> {
+        val history = state.bidding.history
+        if (history.none { it.second is EuchreAction.CallFarmers && it.first != seat }) return history
+        return history.map { (actor, action) ->
+            if (action is EuchreAction.CallFarmers && actor != seat) {
+                actor to EuchreAction.CallFarmers(emptyList())
+            } else {
+                actor to action
+            }
+        }
+    }
+
     override fun legalActions(state: EuchreState, seat: Seat): List<EuchreAction> {
         if (currentActor(state) != seat) return emptyList()
         return when (state.phase) {
             EuchrePhase.FARMERS -> farmersActions(state, seat)
             EuchrePhase.BIDDING_ROUND_1 ->
-                if (state.upcard is Joker) bennyForcedCalls() else round1Actions()
+                if (state.upcard is Joker) BENNY_FORCED_CALLS else ROUND1_ACTIONS
             EuchrePhase.BIDDING_ROUND_2 -> round2Actions(state, seat)
             EuchrePhase.DEALER_DISCARD ->
                 state.hands.getValue(seat).map { EuchreAction.DealerDiscard(it) }
-            EuchrePhase.DEFEND_ALONE -> listOf(EuchreAction.DefendAlone, EuchreAction.DeclineDefend)
+            EuchrePhase.DEFEND_ALONE -> DEFEND_ACTIONS
             EuchrePhase.PLAY -> legalPlays(state, seat).map { EuchreAction.PlayCard(it) }
             EuchrePhase.COMPLETE -> emptyList()
         }
@@ -123,7 +135,7 @@ class EuchreRules(
         handResults: List<EuchreHandResult> = emptyList(),
         lastHandResult: EuchreHandResult? = null,
     ): EuchreState {
-        val dealt = deal(euchreDeck(bennyEnabled).shuffleWith(Random(seed)), PLAYER_COUNT, HAND_SIZE)
+        val dealt = shuffleAndDeal(deck, PLAYER_COUNT, HAND_SIZE, Random(seed))
         val hands = dealt.hands.mapIndexed { i, hand -> Seat(i) to hand }.toMap()
         val upcard = dealt.leftover.first()
         val base = EuchreState(
@@ -161,11 +173,10 @@ class EuchreRules(
     /** Qualifying seats, from the dealer's left, that have not yet called or declined. */
     private fun firstFarmer(state: EuchreState): Seat? {
         if (!farmersHandEnabled) return null
-        val acted = state.bidding.history
-            .filter { it.second is EuchreAction.CallFarmers || it.second is EuchreAction.DeclineFarmers }
-            .map { it.first }
-            .toSet()
-        return playOrder(nextSeat(state.dealer, PLAYER_COUNT), (0 until PLAYER_COUNT).map(::Seat))
+        val acted = actorsWhoAnswered(state) {
+            it is EuchreAction.CallFarmers || it is EuchreAction.DeclineFarmers
+        }
+        return dealOrder(state.dealer)
             .firstOrNull { it !in acted && qualifiesForFarmers(state.hands.getValue(it)) }
     }
 
@@ -217,21 +228,8 @@ class EuchreRules(
 
     // --- Bidding -------------------------------------------------------------------------------
 
-    private fun round1Actions(): List<EuchreAction> = listOf(
-        EuchreAction.Pass,
-        EuchreAction.OrderUp(alone = false),
-        EuchreAction.OrderUp(alone = true),
-    )
-
-    /** The dealer's forced call when the Benny Joker is turned up: name any suit, no pass. */
-    private fun bennyForcedCalls(): List<EuchreAction> = Suit.entries.flatMap {
-        listOf(EuchreAction.CallTrump(it, alone = false), EuchreAction.CallTrump(it, alone = true))
-    }
-
     private fun round2Actions(state: EuchreState, seat: Seat): List<EuchreAction> {
-        val callable = Suit.entries.filter { it != state.upcardSuit }.flatMap {
-            listOf(EuchreAction.CallTrump(it, alone = false), EuchreAction.CallTrump(it, alone = true))
-        }
+        val callable = ROUND2_CALLS.getValue(state.upcardSuit)
         val mayPass = !(stickTheDealer && seat == state.dealer)
         return if (mayPass) callable + EuchreAction.Pass else callable
     }
@@ -256,14 +254,7 @@ class EuchreRules(
                 if (seat == state.dealer) {
                     check(!stickTheDealer) { "Stuck dealer cannot pass" }
                     // Thrown in: redeal under the next dealer, no score change.
-                    dealHand(
-                        seed = nextSeed(state.rngSeed),
-                        dealer = nextSeat(state.dealer, PLAYER_COUNT),
-                        handNumber = state.handNumber + 1,
-                        scores = state.scores,
-                        handResults = state.handResults,
-                        lastHandResult = state.lastHandResult,
-                    )
+                    nextDeal(state)
                 } else {
                     advanceBidder(recorded, seat)
                 }
@@ -341,13 +332,12 @@ class EuchreRules(
     // --- Defend alone --------------------------------------------------------------------------
 
     private fun defenders(makers: Makers): List<Seat> =
-        (0 until PLAYER_COUNT).map(::Seat).filter { teamOf(it, TEAM_COUNT) != makers.makerTeam }
+        EUCHRE_SEATS.filter { teamOf(it, TEAM_COUNT) != makers.makerTeam }
 
     private fun afterTrumpMade(state: EuchreState): EuchreState {
         val makers = checkNotNull(state.makers)
         if (defendAlone && makers.alone) {
-            val first = playOrder(nextSeat(state.dealer, PLAYER_COUNT), (0 until PLAYER_COUNT).map(::Seat))
-                .first { it in defenders(makers) }
+            val first = dealOrder(state.dealer).first { it in defenders(makers) }
             return state.copy(
                 phase = EuchrePhase.DEFEND_ALONE,
                 bidding = state.bidding.copy(toAct = first),
@@ -363,10 +353,9 @@ class EuchreRules(
         if (action is EuchreAction.DefendAlone) {
             return startPlay(recorded.copy(makers = makers.copy(loneDefender = seat)))
         }
-        val asked = recorded.bidding.history
-            .filter { it.second is EuchreAction.DefendAlone || it.second is EuchreAction.DeclineDefend }
-            .map { it.first }
-            .toSet()
+        val asked = actorsWhoAnswered(recorded) {
+            it is EuchreAction.DefendAlone || it is EuchreAction.DeclineDefend
+        }
         val remaining = defenders(makers).filter { it !in asked }
         return if (remaining.isEmpty()) {
             startPlay(recorded)
@@ -377,10 +366,8 @@ class EuchreRules(
 
     // --- Play ----------------------------------------------------------------------------------
 
-    private fun evaluator(state: EuchreState): TrickEvaluator = TrickEvaluator(
-        trumpSuit = checkNotNull(state.makers).trump,
-        jokerRole = if (bennyEnabled) JokerRole.HIGHEST_TRUMP else JokerRole.ABSENT,
-    )
+    private fun evaluator(state: EuchreState): TrickEvaluator =
+        euchreEvaluator(checkNotNull(state.makers).trump, bennyEnabled)
 
     private fun startPlay(state: EuchreState): EuchreState {
         val makers = checkNotNull(state.makers)
@@ -388,9 +375,9 @@ class EuchreRules(
             if (makers.alone) add(partnerOf(makers.maker))
             makers.loneDefender?.let { lone -> addAll(defenders(makers).filter { it != lone }) }
         }
-        val active = (0 until PLAYER_COUNT).map(::Seat).filter { it !in sittingOut }
-        val leader = playOrder(nextSeat(state.dealer, PLAYER_COUNT), (0 until PLAYER_COUNT).map(::Seat))
-            .first { it in active }
+        // Ascending, since EUCHRE_SEATS is — which is what lets [playerToAct] skip a sort.
+        val active = EUCHRE_SEATS.filter { it !in sittingOut }
+        val leader = dealOrder(state.dealer).first { it in active }
         return state.copy(
             phase = EuchrePhase.PLAY,
             activeSeats = active,
@@ -402,8 +389,17 @@ class EuchreRules(
         )
     }
 
-    private fun playerToAct(state: EuchreState): Seat =
-        playOrder(checkNotNull(state.leader), state.activeSeats)[state.currentTrick.size]
+    /**
+     * Whose turn it is within the current trick. [EuchreState.activeSeats] is built ascending, so
+     * counting round from the leader is the same answer `playOrder` would give — without its sort,
+     * which matters because a Monte-Carlo rollout asks this several times per card played.
+     */
+    private fun playerToAct(state: EuchreState): Seat {
+        val active = state.activeSeats
+        val start = active.indexOf(checkNotNull(state.leader))
+        check(start >= 0) { "Leader ${state.leader} is not an active seat: $active" }
+        return active[(start + state.currentTrick.size) % active.size]
+    }
 
     private fun legalPlays(state: EuchreState, seat: Seat): List<Card> {
         val hand = state.hands[seat].orEmpty()
@@ -413,12 +409,24 @@ class EuchreRules(
 
     private fun applyPlay(state: EuchreState, seat: Seat, action: EuchreAction.PlayCard): EuchreState {
         check(state.phase == EuchrePhase.PLAY) { "No card play in ${state.phase}" }
-        require(action.card in legalPlays(state, seat)) { "Illegal play ${action.card.code}" }
         val eval = evaluator(state)
+        val hand = state.hands.getValue(seat)
+        val ledSuit = state.ledSuit
+        // The legality test [legalPlays] makes, without building the list: the card came out of
+        // legalActions, so this is a guard, not a search. (Euchre always has a trump suit and never
+        // cardkit's SOLE_TRUMP joker, so "follow suit unless void" is the whole rule.)
+        require(
+            action.card in hand &&
+                (
+                    ledSuit == null ||
+                        eval.effectiveSuit(action.card) == ledSuit ||
+                        hand.none { eval.effectiveSuit(it) == ledSuit }
+                    ),
+        ) { "Illegal play ${action.card.code}" }
         val play = TrickPlay(seat, action.card)
         val trick = state.currentTrick + play
         val played = state.copy(
-            hands = state.hands + (seat to (state.hands.getValue(seat) - action.card)),
+            hands = state.hands + (seat to (hand - action.card)),
             currentTrick = trick,
             ledSuit = if (state.currentTrick.isEmpty()) eval.ledSuitOf(play) else state.ledSuit,
         )
@@ -454,24 +462,63 @@ class EuchreRules(
                 winner = matchWinner,
             )
         } else {
-            dealHand(
-                seed = nextSeed(state.rngSeed),
-                dealer = nextSeat(state.dealer, PLAYER_COUNT),
-                handNumber = state.handNumber + 1,
-                scores = scores,
-                handResults = state.handResults + result,
-                lastHandResult = result,
-            )
+            nextDeal(state, scores, state.handResults + result, result)
         }
     }
 
     // --- Shared helpers ------------------------------------------------------------------------
 
-    private fun partnerOf(seat: Seat): Seat = teammatesOf(seat, PLAYER_COUNT, TEAM_COUNT).first()
+    /**
+     * Deals the next hand of the same match: one hand on, the deal moves left, and the seed
+     * advances. The single place a match steps forward, so determinism has one home.
+     */
+    private fun nextDeal(
+        state: EuchreState,
+        scores: Map<Int, Int> = state.scores,
+        handResults: List<EuchreHandResult> = state.handResults,
+        lastHandResult: EuchreHandResult? = state.lastHandResult,
+    ): EuchreState = dealHand(
+        seed = nextSeed(state.rngSeed),
+        dealer = nextSeat(state.dealer, PLAYER_COUNT),
+        handNumber = state.handNumber + 1,
+        scores = scores,
+        handResults = handResults,
+        lastHandResult = lastHandResult,
+    )
+
+    /** Seats whose logged auction action satisfies [answered] — i.e. who has already been asked. */
+    private fun actorsWhoAnswered(state: EuchreState, answered: (EuchreAction) -> Boolean): Set<Seat> =
+        state.bidding.history.filter { answered(it.second) }.mapTo(mutableSetOf()) { it.first }
 
     private fun record(state: EuchreState, seat: Seat, action: EuchreAction): EuchreState =
         state.copy(bidding = state.bidding.copy(history = state.bidding.history + (seat to action)))
 
     private fun advanceBidder(state: EuchreState, seat: Seat): EuchreState =
         state.copy(bidding = state.bidding.copy(toAct = nextSeat(seat, PLAYER_COUNT)))
+
+    /**
+     * The prompt vocabularies that depend on nothing but the rules of the game, built once. They are
+     * asked for on every legal-actions call, and a rollout makes thousands per decision.
+     */
+    private companion object {
+        val ROUND1_ACTIONS: List<EuchreAction> = listOf(
+            EuchreAction.Pass,
+            EuchreAction.OrderUp(alone = false),
+            EuchreAction.OrderUp(alone = true),
+        )
+
+        val DEFEND_ACTIONS: List<EuchreAction> = listOf(EuchreAction.DefendAlone, EuchreAction.DeclineDefend)
+
+        /** The dealer's forced call when the Benny Joker is turned up: name any suit, no pass. */
+        val BENNY_FORCED_CALLS: List<EuchreAction> = callsExcept(null)
+
+        /** Round-2 calls by turned-down suit; the key is null when a suitless Joker was turned up. */
+        val ROUND2_CALLS: Map<Suit?, List<EuchreAction>> =
+            (Suit.entries + null).associateWith { turnedDown -> callsExcept(turnedDown) }
+
+        private fun callsExcept(turnedDown: Suit?): List<EuchreAction> =
+            Suit.entries.filter { it != turnedDown }.flatMap {
+                listOf(EuchreAction.CallTrump(it, alone = false), EuchreAction.CallTrump(it, alone = true))
+            }
+    }
 }

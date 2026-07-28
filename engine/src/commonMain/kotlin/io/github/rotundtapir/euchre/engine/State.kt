@@ -53,7 +53,13 @@ data class EuchreHandResult(
     val made: Boolean,
     /** Points awarded, per team index (exactly one team scores in Euchre). */
     val teamDeltas: Map<Int, Int>,
-)
+) {
+    /**
+     * Which of the five ways a hand can end this was — derived, not stored, so the classification
+     * the score came from is the same one a UI describes the hand with.
+     */
+    val outcome: EuchreOutcome get() = euchreOutcome(makers, makerTricks)
+}
 
 /**
  * The full, authoritative state of a match — a pure value the reducer maps to the next state.
@@ -194,5 +200,11 @@ data class EuchrePlayerView(
 ) {
     val trump: Suit? get() = makers?.trump
     val myTeam: Int get() = teamOf(seat, TEAM_COUNT)
+
+    /** The opposing team — Euchre has exactly two, so "them" is a single index. */
+    val opponentTeam: Int get() = opposingTeam(myTeam)
     val isMyTurn: Boolean get() = toAct == seat
+
+    /** True when [other] is this seat's own or their partner's. */
+    fun isMyTeam(other: Seat): Boolean = teamOf(other, TEAM_COUNT) == myTeam
 }
