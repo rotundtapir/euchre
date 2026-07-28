@@ -155,7 +155,12 @@ fun GameScreen(
                             val height = with(density) { size.height.toDp() }
                             if (height > handAreaFloor) handAreaFloor = height
                         },
-                    contentAlignment = Alignment.TopCenter,
+                    // Anchored to the BOTTOM of the reserved area, so the slack opens above the
+                    // panel rather than under it: the hand fan is the last element of every panel,
+                    // so bottom-aligning is what keeps the cards themselves still when a prompt
+                    // gains or loses a row. (Top-aligning held the felt but slid the hand 96dp up
+                    // as bidding ended — caught by TableLayoutStabilityTest on its first run.)
+                    contentAlignment = Alignment.BottomCenter,
                 ) {
                     when {
                         dealState.dealing -> DealingHandRow(
