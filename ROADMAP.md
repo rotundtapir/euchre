@@ -24,17 +24,6 @@ Direction, not commitment — items land when they're ready. Feedback and votes:
   modules (the deferred `cardkit-server`/`cardkit-net-client` extraction). Invite-code lobbies,
   bot fill-in, cross-play Android ↔ web, self-hostable. The engine is already a pure serializable
   reducer with stable wire names, so this is a transport project, not an engine rewrite.
-- **Tutorial: "Back" from a lesson primer to the lesson picker.** Picking a lesson opens its
-  primer, whose only escape is "Cancel", which drops you out of the tutorial entirely — so
-  changing your mind about *which* lesson costs a full round trip through Home → How to play.
-  The primer should offer a way back to the picker.
-
-  The wiring is in `App.kt`: the primer's `onDismiss` currently clears `primerLessonId`; pointing
-  it back at `showLessonPicker = true` restores the picker in one line. The catch is the label —
-  cardkit's `TutorialPagesDialog` hardcodes "Cancel" for the first page's dismiss action (later
-  pages get "Back", which walks the pager). Doing this properly wants a `dismissLabel` parameter
-  on that composable, defaulting to "Cancel" so 500 is unaffected — i.e. a small cardkit PR plus
-  a one-line change here.
 - **F-Droid submission** and **Google Play production release**.
 - 3-handed (cutthroat) and 2-handed variants.
 - Statistics / match history.
