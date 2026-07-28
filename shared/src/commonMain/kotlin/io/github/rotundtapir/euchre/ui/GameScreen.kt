@@ -84,6 +84,10 @@ fun GameScreen(
     // Highest hand number whose result dialog has been dismissed — the NEXT hand's shuffle waits
     // for it, so nothing moves behind the dialog while the player reads it.
     var resultAckedHand by remember { mutableIntStateOf(0) }
+    // How many SCORED hands have been acknowledged. Not the same thing as the hand number: a hand
+    // thrown in (everyone passes twice, no stick-the-dealer) scores nothing, so it carries the
+    // previous hand's result forward while handResults stays put.
+    var ackedResults by remember { mutableIntStateOf(0) }
     // Whether the FINAL hand's result dialog has been dismissed. resultAckedHand can't tell:
     // between hands the dialog shows under the NEXT hand's number. Keyed on winner so it resets if
     // this composable survives into another game.
@@ -99,8 +103,12 @@ fun GameScreen(
 
     val dealState = remember { DealAnimationState() }
     dealState.soundHook = soundHook
-    val dealtHand = rememberDealGate(view, animationSpeed, dealState, onDealAnimationFinish) { handNumber ->
-        snapshotFlow { resultAckedHand }.first { it >= handNumber }
+    // Only a hand whose result dialog is still to be read holds up the next shuffle. A thrown-in
+    // hand carries the previous hand's result but shows no dialog for it, so waiting on one would
+    // leave the hand area blank for good.
+    val resultPending = view.handResults.size > ackedResults && view.winner == null
+    val dealtHand = rememberDealGate(view, animationSpeed, dealState, resultPending, onDealAnimationFinish) { hand ->
+        snapshotFlow { resultAckedHand }.first { it >= hand }
     }
 
     Surface(
@@ -229,6 +237,7 @@ fun GameScreen(
                 // the epilogue instead of dealing on.
                 lessonComplete = true
             } else {
+                ackedResults = view.handResults.size
                 resultAckedHand = view.handNumber
                 onResultDismiss(view.handNumber)
                 if (view.winner != null) finalResultAcked = true
@@ -264,6 +273,7 @@ private fun rememberDealGate(
     view: EuchrePlayerView,
     animationSpeed: AnimationSpeed,
     dealState: DealAnimationState,
+    resultPending: Boolean,
     onDealAnimationFinish: (Int) -> Unit,
     awaitResultAck: suspend (Int) -> Unit,
 ): Int {
@@ -271,6 +281,7 @@ private fun rememberDealGate(
     // running effect holding a stale one.
     val currentFinish by rememberUpdatedState(onDealAnimationFinish)
     val currentAwaitAck by rememberUpdatedState(awaitResultAck)
+    val currentResultPending by rememberUpdatedState(resultPending)
     // Saveable so an activity recreation doesn't replay a deal that already ran. NO_HAND, not 0:
     // hands are numbered from zero, so a zero sentinel reads as "hand 0 has already been dealt" and
     // the first deal of a game — the one every player sees — is skipped as if it were a recreation.
@@ -293,7 +304,7 @@ private fun rememberDealGate(
             currentFinish(view.handNumber)
             return@LaunchedEffect
         }
-        if (view.lastHandResult != null && view.winner == null) currentAwaitAck(view.handNumber)
+        if (currentResultPending) currentAwaitAck(view.handNumber)
         runDealAnimation(
             state = dealState,
             schedule = euchreDealSchedule(view.dealer),

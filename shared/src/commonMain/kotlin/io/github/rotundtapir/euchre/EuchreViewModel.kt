@@ -51,6 +51,10 @@ class EuchreViewModel : ViewModel() {
     private val state = MutableStateFlow<EuchreState?>(null)
     private var gameJob: Job? = null
 
+    // The hand and the scored-result count the gates have already been told about; see [openHand].
+    private var lastHandSeen = NO_HAND
+    private var resultsAwaitingDialog = 0
+
     private val animationSpeed = MutableStateFlow(SettingsDefaults.ANIMATION_SPEED)
     private val holdTricks = MutableStateFlow(SettingsDefaults.HOLD_TRICKS)
 
@@ -110,9 +114,32 @@ class EuchreViewModel : ViewModel() {
                 put(Seat(i), paced(botPlayer(botSkill, gameRules, seed, i, aiBudgetMillis)))
             }
         }
+        lastHandSeen = NO_HAND
+        resultsAwaitingDialog = 0
         gameJob = viewModelScope.launch {
-            GameDriver(gameRules, players)
-                .play(gameRules.newGame(seed, firstDealer)) { snapshot -> state.value = snapshot }
+            GameDriver(gameRules, players).play(gameRules.newGame(seed, firstDealer)) { snapshot ->
+                state.value = snapshot
+                openHand(snapshot)
+            }
+        }
+    }
+
+    /**
+     * Called with each state as it arrives; acts on the first one of every new hand.
+     *
+     * A hand that scored nothing — thrown in when all four pass twice without stick-the-dealer —
+     * carries the PREVIOUS hand's result forward, and the result dialog is keyed on the number of
+     * scored hands, so it rightly does not re-appear for a result the player has already read. Then
+     * nothing raises the acknowledgement the gates hold the next deal and the bots on, and the game
+     * stops dead. Nothing to acknowledge means acknowledged: say so here.
+     */
+    private fun openHand(snapshot: EuchreState) {
+        if (snapshot.handNumber == lastHandSeen) return
+        lastHandSeen = snapshot.handNumber
+        if (snapshot.handResults.size > resultsAwaitingDialog) {
+            resultsAwaitingDialog = snapshot.handResults.size // a real result: the dialog will show
+        } else {
+            pacing.acknowledgeHandResult(snapshot.handNumber.asGateHand())
         }
     }
 
@@ -180,6 +207,9 @@ class EuchreViewModel : ViewModel() {
     companion object {
         /** Slack over the measured deal animation before the backstop fires. */
         private const val PAUSE_SLACK_MILLIS = 250L
+
+        /** Before any hand has been seen; below every real hand number. */
+        private const val NO_HAND = -1
 
         internal val BOT_NAMES = listOf(
             "Ada", "Bruno", "Cleo", "Dara", "Enzo", "Fen", "Greta", "Hugo",

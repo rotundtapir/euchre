@@ -69,14 +69,17 @@ class EuchreViewModelTest {
         ackResults: Boolean = true,
         onView: (EuchrePlayerView) -> Unit = {},
     ): EuchrePlayerView {
-        var ackedHand = 0
+        // Mirrors HandResultDialog exactly: it is keyed on the number of SCORED hands, so it shows
+        // (and can be dismissed) once per result — never again for a result already read, which is
+        // what a thrown-in hand carries forward.
+        var ackedResults = 0
         var guard = 0
         while (guard++ < STEP_LIMIT) {
             advanceUntilIdle()
             val view = vm.humanView.value ?: break
             if (view.winner != null) return view
-            if (ackResults && view.lastHandResult != null && view.handNumber > ackedHand) {
-                ackedHand = view.handNumber
+            if (ackResults && view.handResults.size > ackedResults) {
+                ackedResults = view.handResults.size
                 vm.acknowledgeHandResult(view.handNumber)
                 continue
             }
@@ -147,6 +150,20 @@ class EuchreViewModelTest {
         vm.acknowledgeHandResult(stalled.handNumber)
         assertNotNull(playToCompletion(vm, seed = 2024L).winner, "acknowledging releases the match")
     }
+
+    @Test
+    fun `a thrown-in hand does not wedge the game waiting on a dialog that never shows`() =
+        runTest(dispatcher) {
+        // Seed 3 without stick-the-dealer: hands 0 and 1 score, then everyone passes hand 2 out.
+        // That hand carries hand 1's result forward while handResults stays put, so the dialog does
+        // not re-show — and before the ViewModel acknowledged such a hand itself, the bots sat
+        // waiting for an acknowledgement no dialog would ever raise. On screen: a dealt hand you
+        // cannot see, an auction that never starts.
+            val rules = EuchreHouseRules(stickTheDealer = false)
+            val vm = offGame(seed = 3L, houseRules = rules)
+            val end = playToCompletion(vm, seed = 3L)
+            assertNotNull(end.winner, "a thrown-in hand must not stall the match")
+        }
 
     @Test
     fun `stick the dealer removes the dealer's Pass from the human's round-two prompt`() =
