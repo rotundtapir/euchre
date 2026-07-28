@@ -185,6 +185,7 @@ fun OpponentsRow(
     view: EuchrePlayerView,
     botNames: Map<Seat, String>,
     dealState: DealAnimationState,
+    dealShown: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -194,6 +195,7 @@ fun OpponentsRow(
                 botNames = botNames,
                 seat = Seat((view.seat.index + offset) % PLAYER_COUNT),
                 dealState = dealState,
+                dealShown = dealShown,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -206,6 +208,7 @@ private fun OpponentStatus(
     botNames: Map<Seat, String>,
     seat: Seat,
     dealState: DealAnimationState,
+    dealShown: Boolean,
     modifier: Modifier = Modifier,
 ) {
     // A seat is only "sitting out" once the hand's active set is known; before then everyone plays.
@@ -239,7 +242,8 @@ private fun OpponentStatus(
                     seat = seat,
                     state = dealState,
                     width = OPPONENT_PILE_WIDTH,
-                    handSize = view.handSizes[seat] ?: 0,
+                    // No cards in front of anyone until this hand has been dealt on screen.
+                    handSize = if (dealShown) view.handSizes[seat] ?: 0 else 0,
                 )
             }
         }
@@ -296,6 +300,7 @@ fun TrickArea(
     // The lesson bubble gives its own "tap the trick" instruction, so the felt's hint would just
     // say it twice.
     hideTapHint: Boolean = false,
+    dealShown: Boolean = true,
     anchors: TutorialAnchors? = null,
 ) {
     val holdingTrick = holdTricks &&
@@ -324,10 +329,10 @@ fun TrickArea(
             minOf(byWidth, byHeight).coerceIn(MIN_TRICK_CARD, MAX_TRICK_CARD)
         }
         when {
-            dealState.dealing -> DealFelt(view, dealState, cardWidth)
-            view.phase == EuchrePhase.PLAY ->
+            dealState.dealing -> DealFelt(view, dealState, cardWidth, dealShown)
+            view.phase == EuchrePhase.PLAY && dealShown ->
                 PlayFelt(view, botNames, cardWidth, holdingTrick && !hideTapHint)
-            else -> UpCardSpot(view, dealState, cardWidth)
+            else -> UpCardSpot(view, dealState, cardWidth, dealShown)
         }
     }
 }
@@ -340,7 +345,12 @@ fun TrickArea(
  * exactly where the auction will keep it, and the felt never jumps between the two stages.
  */
 @Composable
-private fun DealFelt(view: EuchrePlayerView, dealState: DealAnimationState, cardWidth: Dp) {
+private fun DealFelt(
+    view: EuchrePlayerView,
+    dealState: DealAnimationState,
+    cardWidth: Dp,
+    dealShown: Boolean,
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         AnimatedVisibility(
             visible = dealState.stage == DealStage.SHUFFLING || dealState.stage == DealStage.DEALING,
@@ -356,7 +366,7 @@ private fun DealFelt(view: EuchrePlayerView, dealState: DealAnimationState, card
                 Spacer(Modifier.height(16.dp))
             }
         }
-        UpCardSpot(view, dealState, cardWidth)
+        UpCardSpot(view, dealState, cardWidth, dealShown)
     }
 }
 
@@ -367,12 +377,17 @@ private fun DealFelt(view: EuchrePlayerView, dealState: DealAnimationState, card
  * about, rather than showing a card nobody can take.
  */
 @Composable
-private fun UpCardSpot(view: EuchrePlayerView, dealState: DealAnimationState, cardWidth: Dp) {
+private fun UpCardSpot(
+    view: EuchrePlayerView,
+    dealState: DealAnimationState,
+    cardWidth: Dp,
+    dealShown: Boolean,
+) {
     val upcard = view.upcard
-    // During the deal the stock only exists once its packet has actually landed here.
-    val landed = !dealState.dealing || dealState.countFor(UpcardTarget) > 0
+    // The stock only exists here once its packet has landed — or once the hand has been dealt.
+    val landed = dealShown || dealState.countFor(UpcardTarget) > 0
     val faceUp = view.phase == EuchrePhase.BIDDING_ROUND_1 || view.phase == EuchrePhase.FARMERS
-    val showFace = upcard != null && faceUp && !view.upcardTaken && !dealState.dealing
+    val showFace = upcard != null && faceUp && !view.upcardTaken && dealShown
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.Center) {
             // The spot holds its full footprint from the first frame of the deal, so neither the
@@ -386,7 +401,7 @@ private fun UpCardSpot(view: EuchrePlayerView, dealState: DealAnimationState, ca
             upcard?.let { card -> FadingTurnCard(showFace, card, cardWidth) }
         }
         Spacer(Modifier.height(6.dp))
-        SuitText(upCardCaption(view, showFace, dealState.dealing), style = MaterialTheme.typography.labelMedium)
+        SuitText(upCardCaption(view, showFace, dealing = !dealShown), style = MaterialTheme.typography.labelMedium)
     }
 }
 

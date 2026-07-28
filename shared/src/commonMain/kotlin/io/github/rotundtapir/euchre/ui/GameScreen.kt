@@ -111,6 +111,12 @@ fun GameScreen(
         snapshotFlow { resultAckedHand }.first { it >= hand }
     }
 
+    // True once this hand has actually been dealt on screen. NOT the same as "no animation running":
+    // between GameScreen composing and its deal effect starting there is a gap in which nothing is
+    // animating and nothing has been dealt either. Showing the settled table in that gap is what
+    // made starting a game flicker — a finished deal for a frame, then a rewind into the shuffle.
+    val dealShown = animationSpeed == AnimationSpeed.OFF || view.handNumber <= dealtHand
+
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -133,9 +139,9 @@ fun GameScreen(
                     onMenu = { showLeaveConfirm = true },
                 )
                 // The turn card is only public once the deal has actually turned it over.
-                TrumpLine(view, botNames, upcardRevealed = !dealState.dealing)
+                TrumpLine(view, botNames, upcardRevealed = dealShown)
                 Spacer(Modifier.height(12.dp))
-                OpponentsRow(view, botNames, dealState)
+                OpponentsRow(view, botNames, dealState, dealShown)
                 TrickArea(
                     view = view,
                     botNames = botNames,
@@ -146,6 +152,7 @@ fun GameScreen(
                     onTrickAcknowledge = onTrickAcknowledge,
                     // A lesson's bubble carries the "tap the trick" instruction itself.
                     hideTapHint = tutorial != null,
+                    dealShown = dealShown,
                     anchors = tutorialAnchors,
                 )
                 // The hand area's three states are different heights — the dealing row, the blank
@@ -178,10 +185,9 @@ fun GameScreen(
                             humanSeat = view.seat,
                             timings = dealTimings(animationSpeed),
                         )
-                        // A fresh hand whose shuffle is still held behind the result dialog: keep
-                        // the new cards and the bidding buttons off screen until the deal runs.
-                        animationSpeed != AnimationSpeed.OFF && view.handNumber > dealtHand ->
-                            Box(Modifier.fillMaxWidth())
+                        // A fresh hand whose shuffle has not run yet — held behind a result dialog,
+                        // or simply not started: keep the cards and the buttons off screen.
+                        !dealShown -> Box(Modifier.fillMaxWidth())
                         else -> ActionArea(
                             view = view,
                             botNames = botNames,

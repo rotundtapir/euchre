@@ -68,13 +68,7 @@ class TutorialFrameCapture {
 
     @Test
     fun filmTheOpeningOfLessonOne() {
-        val outDir = File(
-            InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null),
-            "frames",
-        ).apply {
-            deleteRecursively()
-            mkdirs()
-        }
+        val outDir = framesDir("frames")
 
         // Get to the primer with the clock still running: none of this is what we are filming.
         rule.onNodeWithTag("walkthroughButton").performClick()
@@ -96,8 +90,20 @@ class TutorialFrameCapture {
         // capture costs 400ms lets real time sprint ahead — the first version of this did exactly
         // that, and two bot plays landed inside a single captured step, which reads as a bug in
         // the app when it is a bug in the camera.
+        filmFrames(outDir, FRAMES)
+    }
+
+    private fun framesDir(name: String): File = File(
+        InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null),
+        name,
+    ).apply {
+        deleteRecursively()
+        mkdirs()
+    }
+
+    private fun filmFrames(outDir: File, frames: Int) {
         var previous = SystemClock.uptimeMillis()
-        repeat(FRAMES) { i ->
+        repeat(frames) { i ->
             val now = SystemClock.uptimeMillis()
             rule.mainClock.advanceTimeBy((now - previous).coerceAtLeast(1L))
             previous = now
@@ -116,6 +122,18 @@ class TutorialFrameCapture {
             small.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
         small.recycle()
+    }
+
+    /** Films from the tap on "Play" to the first frames of a bot game's deal. */
+    @Test
+    fun filmStartingABotGame() {
+        val outDir = framesDir("frames-newgame")
+        rule.onNodeWithTag("playWithBotsButton").performClick()
+        rule.waitUntil(TIMEOUT_MS) { tagPresent("startBotGame") }
+
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("startBotGame").performClick()
+        filmFrames(outDir, NEW_GAME_FRAMES)
     }
 
     /**
@@ -189,6 +207,9 @@ class TutorialFrameCapture {
         /** However fast captures come; ~10-20fps in practice, which SLOW is stretched enough for. */
         const val FRAMES = 200
         const val TIMEOUT_MS = 20_000L
+
+        /** Enough to cover the screen swap and the opening of the deal. */
+        const val NEW_GAME_FRAMES = 40
 
         /**
          * Generous: at SLOW the lesson is a ~7s deal, four bot bids a beat apart, then five tricks
