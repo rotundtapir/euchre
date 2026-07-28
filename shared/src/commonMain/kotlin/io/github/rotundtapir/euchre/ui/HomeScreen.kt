@@ -36,10 +36,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.rotundtapir.cardkit.monetization.Monetization
 import io.github.rotundtapir.cardkit.ui.SettingsIcon
-import io.github.rotundtapir.cardkit.ui.felt.CardSurfaceWhite
-import io.github.rotundtapir.cardkit.ui.felt.InkOnCardSurface
 import io.github.rotundtapir.cardkit.ui.felt.OnBackgroundIconButton
 import io.github.rotundtapir.cardkit.ui.felt.OnBackgroundOutlinedButton
+import io.github.rotundtapir.cardkit.ui.felt.cardSurfaceButtonColors
 import io.github.rotundtapir.cardkit.ui.settings.BotSkill
 import io.github.rotundtapir.cardkit.ui.settings.SectionHeader
 import io.github.rotundtapir.cardkit.ui.settings.SwitchRow
@@ -170,9 +169,6 @@ fun BotSetupScreen(
     }
 }
 
-/** The filled call-to-action styling: card white with the fixed dark-green ink (never theme primary). */
+/** The filled call-to-action styling: cardkit's card-white pill with its fixed dark-green ink. */
 @Composable
-private fun primaryButtonColors() = ButtonDefaults.buttonColors(
-    containerColor = CardSurfaceWhite,
-    contentColor = InkOnCardSurface,
-)
+private fun primaryButtonColors() = cardSurfaceButtonColors()

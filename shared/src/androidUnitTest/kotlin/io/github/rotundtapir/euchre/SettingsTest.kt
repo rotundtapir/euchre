@@ -3,37 +3,13 @@ package io.github.rotundtapir.euchre
 
 import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
 import io.github.rotundtapir.cardkit.ui.settings.BotSkill
-import io.github.rotundtapir.cardkit.ui.settings.KeyValueStore
+import io.github.rotundtapir.cardkit.ui.settings.InMemoryKeyValueStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-
-/** In-memory [KeyValueStore] mirroring the web store's shape (per-key state flows). */
-private class FakeStore : KeyValueStore {
-    val strings = mutableMapOf<String, MutableStateFlow<String?>>()
-    private val booleans = mutableMapOf<String, MutableStateFlow<Boolean?>>()
-    private val floats = mutableMapOf<String, MutableStateFlow<Float?>>()
-
-    override fun string(key: String): Flow<String?> = strings.getOrPut(key) { MutableStateFlow(null) }
-    override suspend fun putString(key: String, value: String) {
-        strings.getOrPut(key) { MutableStateFlow(null) }.value = value
-    }
-
-    override fun boolean(key: String): Flow<Boolean?> = booleans.getOrPut(key) { MutableStateFlow(null) }
-    override suspend fun putBoolean(key: String, value: Boolean) {
-        booleans.getOrPut(key) { MutableStateFlow(null) }.value = value
-    }
-
-    override fun float(key: String): Flow<Float?> = floats.getOrPut(key) { MutableStateFlow(null) }
-    override suspend fun putFloat(key: String, value: Float) {
-        floats.getOrPut(key) { MutableStateFlow(null) }.value = value
-    }
-}
 
 /**
  * [KeyValueSettingsRepository] over an in-memory store: every setting must fall back to its
@@ -43,7 +19,7 @@ class KeyValueSettingsRepositoryTest {
 
     @Test
     fun `an empty store yields every documented default`() = runTest {
-        val repo = KeyValueSettingsRepository(FakeStore())
+        val repo = KeyValueSettingsRepository(InMemoryKeyValueStore())
         assertEquals(SettingsDefaults.ANIMATION_SPEED, repo.animationSpeed.first())
         assertEquals(SettingsDefaults.SORT_HAND_BY_DEFAULT, repo.sortHandByDefault.first())
         assertEquals(SettingsDefaults.HOLD_TRICKS, repo.holdTricks.first())
@@ -60,12 +36,12 @@ class KeyValueSettingsRepositoryTest {
         // A hand where everyone passes twice is a dull throw-in, so this one starts enabled — and
         // the default is load-bearing for the bidding UI (the dealer's Pass button disappears).
         assertTrue(SettingsDefaults.STICK_THE_DEALER)
-        assertTrue(KeyValueSettingsRepository(FakeStore()).stickTheDealer.first())
+        assertTrue(KeyValueSettingsRepository(InMemoryKeyValueStore()).stickTheDealer.first())
     }
 
     @Test
     fun `every setting round-trips through the repository`() = runTest {
-        val repo = KeyValueSettingsRepository(FakeStore())
+        val repo = KeyValueSettingsRepository(InMemoryKeyValueStore())
         repo.setAnimationSpeed(AnimationSpeed.FAST)
         repo.setSortHandByDefault(true)
         repo.setHoldTricks(true)
@@ -94,17 +70,17 @@ class KeyValueSettingsRepositoryTest {
     fun `enums persist by exact entry name under their frozen keys`() = runTest {
         // The stored strings are the wire format shared with existing installs: renaming a key or
         // an entry silently resets that setting for everyone.
-        val store = FakeStore()
+        val store = InMemoryKeyValueStore()
         val repo = KeyValueSettingsRepository(store)
         repo.setAnimationSpeed(AnimationSpeed.SLOW)
         repo.setBotSkill(BotSkill.ADVANCED)
-        assertEquals("SLOW", store.strings.getValue(SettingsKeys.ANIMATION_SPEED).value)
-        assertEquals("ADVANCED", store.strings.getValue(SettingsKeys.BOT_SKILL).value)
+        assertEquals("SLOW", store.string(SettingsKeys.ANIMATION_SPEED).first())
+        assertEquals("ADVANCED", store.string(SettingsKeys.BOT_SKILL).first())
     }
 
     @Test
     fun `an unrecognised stored enum degrades to the default instead of crashing`() = runTest {
-        val store = FakeStore()
+        val store = InMemoryKeyValueStore()
         store.putString(SettingsKeys.ANIMATION_SPEED, "TURBO")
         store.putString(SettingsKeys.BOT_SKILL, "GRANDMASTER")
         val repo = KeyValueSettingsRepository(store)

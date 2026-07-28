@@ -34,8 +34,9 @@ import io.github.rotundtapir.cardkit.core.Card
 import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.cardkit.ui.CardHand
 import io.github.rotundtapir.cardkit.ui.SuitText
-import io.github.rotundtapir.cardkit.ui.felt.CardSurfaceWhite
-import io.github.rotundtapir.cardkit.ui.felt.InkOnCardSurface
+import io.github.rotundtapir.cardkit.ui.felt.OnBackgroundOutlinedButton
+import io.github.rotundtapir.cardkit.ui.felt.cardSurfaceButtonColors
+import io.github.rotundtapir.cardkit.ui.felt.feltTonalButtonColors
 import io.github.rotundtapir.cardkit.ui.tutorial.TutorialAnchors
 import io.github.rotundtapir.cardkit.ui.tutorial.tutorialTarget
 import io.github.rotundtapir.euchre.engine.EuchreAction
@@ -310,10 +311,7 @@ private fun CardSelectionPanel(
                     onConfirm(selected.toList())
                 },
                 enabled = !acted && selected.size == requiredCount,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = CardSurfaceWhite,
-                    contentColor = InkOnCardSurface,
-                ),
+                colors = cardSurfaceButtonColors(),
                 modifier = Modifier.testTag(confirmTag),
             ) { Text(confirmLabel) }
         }
@@ -352,7 +350,10 @@ private fun AloneToggle(alone: Boolean, onChange: (Boolean) -> Unit) {
     }
 }
 
-/** An outlined button legible on the felt; [emphasized] fills it card-white for the primary choice. */
+/**
+ * A prompt's button: cardkit's felt-legible outlined button, named and tagged for this game.
+ * [emphasized] fills it card-white for the one obvious choice.
+ */
 @Composable
 private fun FeltActionButton(
     label: String,
@@ -362,16 +363,10 @@ private fun FeltActionButton(
     modifier: Modifier = Modifier,
     emphasized: Boolean = false,
 ) {
-    val onBackground = MaterialTheme.colorScheme.onBackground
-    OutlinedButton(
+    OnBackgroundOutlinedButton(
         onClick = onClick,
         enabled = enabled,
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = if (emphasized) CardSurfaceWhite else Color.Transparent,
-            contentColor = if (emphasized) InkOnCardSurface else onBackground,
-            disabledContentColor = onBackground.copy(alpha = 0.38f),
-        ),
-        border = BorderStroke(1.dp, onBackground.copy(alpha = 0.6f)),
+        emphasized = emphasized,
         modifier = modifier.testTag(tag),
     ) { SuitText(label) }
 }
@@ -433,10 +428,8 @@ private fun HumanHand(
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         OutlinedButton(
             onClick = hand.onToggleSort,
-            colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.12f),
-                contentColor = MaterialTheme.colorScheme.onBackground,
-            ),
+            // Sizing stays here (a compact chip above the fan); only the colours are shared.
+            colors = feltTonalButtonColors(),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)),
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 2.dp),
             modifier = Modifier.height(30.dp).testTag("sortToggle"),
