@@ -11,7 +11,7 @@ import io.github.rotundtapir.euchre.engine.EuchrePlayerView
  * A data class (not an anonymous object) so Compose effect keying follows view equality.
  */
 data class EuchreTransitions(private val view: EuchrePlayerView) : TableTransitions {
-    override val handNumber: Int get() = view.handNumber
+    override val handNumber: Int get() = view.handNumber.asGateHand()
     override val trickNumber: Int get() = view.trickNumber
     override val trickCardCount: Int get() = view.currentTrick.size
     override val handResultCount: Int get() = view.handResults.size
@@ -31,3 +31,14 @@ data class EuchreTransitions(private val view: EuchrePlayerView) : TableTransiti
 
 /** The pacing/sound projection of this view. */
 val EuchrePlayerView.transitions: EuchreTransitions get() = EuchreTransitions(this)
+
+/**
+ * An engine hand number as cardkit's gates count them.
+ *
+ * [TableTransitions.handNumber] is documented as 1-based, and the gates lean on that: their signal
+ * state starts at zero and each wait is `signal >= handNumber`. Euchre's engine numbers hands from
+ * zero, so passing one straight through makes the very first hand's wait read as already satisfied
+ * — the deal gate becomes a no-op and the bots open the auction while the cards are still in the
+ * air. Every signal raised for the gates goes through here, so both sides count the same way.
+ */
+internal fun Int.asGateHand(): Int = this + 1

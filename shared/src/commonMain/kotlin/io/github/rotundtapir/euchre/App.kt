@@ -126,9 +126,9 @@ fun EuchreApp(
                     activeLessonId = null
                     appScreen = AppScreen.HOME.name
                 },
-                onResultDismiss = vm.pacing::acknowledgeHandResult,
-                onDealAnimationFinish = vm.pacing::dealAnimationFinished,
-                onTrickAcknowledge = vm.pacing::acknowledgeTrick,
+                onResultDismiss = vm::acknowledgeHandResult,
+                onDealAnimationFinish = vm::dealAnimationFinished,
+                onTrickAcknowledge = vm::acknowledgeTrick,
                 soundHook = playSound,
                 tutorial = activeLesson?.let { lesson ->
                     remember(lesson, lessonStepIndex) {

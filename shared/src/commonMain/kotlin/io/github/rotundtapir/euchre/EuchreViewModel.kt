@@ -149,6 +149,21 @@ class EuchreViewModel : ViewModel() {
             inner.decide(view)
         }
 
+    // --- Pacing signals --------------------------------------------------------------------------
+
+    // The UI reports engine hand numbers; the gates count from one (see [asGateHand]). Converting
+    // here keeps every signal on the same footing as the views the gates compare them against.
+
+    /** The end-of-hand dialog has been dismissed: the next hand may be dealt. */
+    fun acknowledgeHandResult(handNumber: Int) = pacing.acknowledgeHandResult(handNumber.asGateHand())
+
+    /** The shuffle and deal have finished on screen: the first bidder may act. */
+    fun dealAnimationFinished(handNumber: Int) = pacing.dealAnimationFinished(handNumber.asGateHand())
+
+    /** A held trick has been tapped away: the next leader may act. */
+    fun acknowledgeTrick(handNumber: Int, trickNumber: Int) =
+        pacing.acknowledgeTrick(handNumber.asGateHand(), trickNumber)
+
     // --- Human actions ---------------------------------------------------------------------------
 
     /**

@@ -77,7 +77,7 @@ class EuchreViewModelTest {
             if (view.winner != null) return view
             if (ackResults && view.lastHandResult != null && view.handNumber > ackedHand) {
                 ackedHand = view.handNumber
-                vm.pacing.acknowledgeHandResult(view.handNumber)
+                vm.acknowledgeHandResult(view.handNumber)
                 continue
             }
             if (view.isMyTurn) {
@@ -144,7 +144,7 @@ class EuchreViewModelTest {
         assertNull(stalled.winner)
         assertTrue(stalled.biddingHistory.isEmpty(), "the next hand's auction must be blocked pending the ack")
 
-        vm.pacing.acknowledgeHandResult(stalled.handNumber)
+        vm.acknowledgeHandResult(stalled.handNumber)
         assertNotNull(playToCompletion(vm, seed = 2024L).winner, "acknowledging releases the match")
     }
 
