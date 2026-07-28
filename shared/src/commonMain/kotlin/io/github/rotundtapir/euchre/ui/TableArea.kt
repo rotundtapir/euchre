@@ -137,8 +137,9 @@ fun TrumpLine(
 ) {
     val text = trumpLineText(view, botNames, upcardRevealed)
     if (text.isBlank()) {
-        // Keep the row's height stable between phases so the felt below never jumps.
-        Text("", modifier = modifier)
+        // Keep the row's height stable between phases so the felt below never jumps — including the
+        // pill's own vertical padding, or its arrival would shift everything under it.
+        Text("", modifier = modifier.padding(vertical = PILL_PADDING_V))
     } else {
         // A card-white pill: the line carries suit symbols whose black glyphs sink into the felt.
         Surface(
@@ -147,7 +148,7 @@ fun TrumpLine(
             contentColor = NeutralInkOnCardSurface,
             modifier = modifier,
         ) {
-            SuitText(text, modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp))
+            SuitText(text, modifier = Modifier.padding(horizontal = 12.dp, vertical = PILL_PADDING_V))
         }
     }
 }
@@ -166,8 +167,10 @@ internal fun trumpLineText(
             makers.loneDefender?.let { append(" · ${seatLabel(view.seat, botNames, it)} defends alone") }
         }
     }
-    // Nothing to say about a card the player has not seen yet; the felt says "Dealing…" meanwhile.
-    if (!upcardRevealed) return ""
+    // The pill is on screen from the first frame of the hand — it just cannot name a card the
+    // player has not been shown yet. Returning "" here instead would let the row change height when
+    // the card is finally turned over, nudging the whole table down.
+    if (!upcardRevealed) return "Bidding"
     val upcardName = view.upcardSuit?.symbol ?: view.upcard?.label ?: ""
     return when (view.phase) {
         EuchrePhase.BIDDING_ROUND_2 -> "Bidding — $upcardName turned down"
@@ -535,6 +538,9 @@ private fun TrickSlot(
         )
     }
 }
+
+/** The trump pill's vertical padding, shared with the blank stand-in that holds its height. */
+private val PILL_PADDING_V = 3.dp
 
 /** Tags the felt, so tests can assert it holds its place as the phases change. */
 const val FELT_TAG = "felt"

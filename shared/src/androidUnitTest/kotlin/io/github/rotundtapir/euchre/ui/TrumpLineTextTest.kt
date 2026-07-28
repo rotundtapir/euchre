@@ -45,7 +45,12 @@ class TrumpLineTextTest {
             Suit.SPADES.symbol in dealing,
             "the up-card's suit must not be named while it is still face down: was '$dealing'",
         )
-        assertEquals("", dealing, "with nothing safe to say the line stays blank, keeping its height")
+        assertEquals(
+            "Bidding",
+            dealing,
+            "the pill still renders — it just says nothing about the card, so turning the card over " +
+                "changes only its text, never the row's height",
+        )
     }
 
     @Test
@@ -58,7 +63,7 @@ class TrumpLineTextTest {
     @Test
     fun `a turned-down card is described as turned down, still only once revealed`() {
         val phase = EuchrePhase.BIDDING_ROUND_2
-        assertEquals("", trumpLineText(view(phase), botNames, upcardRevealed = false))
+        assertEquals("Bidding", trumpLineText(view(phase), botNames, upcardRevealed = false))
         assertTrue("turned down" in trumpLineText(view(phase), botNames, upcardRevealed = true))
     }
 
