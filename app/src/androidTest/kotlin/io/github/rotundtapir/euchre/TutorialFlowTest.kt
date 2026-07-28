@@ -63,13 +63,19 @@ class TutorialFlowTest : EuchreUiTest() {
     }
 
     @Test
-    fun aLesson_canBeAbandonedFromItsPrimer() {
+    fun aLessonPrimer_goesBackToThePicker() {
         rule.onNodeWithTag("walkthroughButton").performClick()
         rule.waitUntil(STEP_TIMEOUT_MS) { nodesWithTag("lessonPicker").isNotEmpty() }
         rule.onNodeWithTag("lesson:alone").performScrollTo().performClick()
         rule.waitUntil(STEP_TIMEOUT_MS) { nodesWithTag("tutorialPrimerNext").isNotEmpty() }
-        // The primer's first page offers Cancel in place of Back — no hand is dealt until "Deal".
-        rule.onNodeWithText("Cancel").performClick()
+        // The primer's first page offers Back where later pages walk the pager: it returns to the
+        // picker so another lesson can be chosen, rather than dropping out of the tutorial. No
+        // hand is dealt until "Deal".
+        rule.onNodeWithText("Back").performClick()
+        rule.waitUntil(STEP_TIMEOUT_MS) { nodesWithTag("lessonPicker").isNotEmpty() }
+        assertTrue("the primer should be gone", nodesWithTag("tutorialPrimerNext").isEmpty())
+        // Still no dead end: the picker itself closes to Home.
+        rule.onNodeWithTag("lessonPickerClose").performScrollTo().performClick()
         rule.onNodeWithText("Play with bots").assertIsDisplayed()
     }
 

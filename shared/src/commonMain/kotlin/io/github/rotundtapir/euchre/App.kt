@@ -187,7 +187,13 @@ fun EuchreApp(
                 finishLabel = "Deal",
                 finishTag = "tutorialPrimerStart",
                 onFinish = { startLesson(lesson) },
-                onDismiss = { primerLessonId = null },
+                // Backing out of a primer returns to the picker rather than leaving the tutorial:
+                // changing your mind about which lesson to take shouldn't cost a trip via Home.
+                onDismiss = {
+                    primerLessonId = null
+                    showLessonPicker = true
+                },
+                dismissLabel = "Back",
                 uniformBodyHeight = true,
             )
         }
