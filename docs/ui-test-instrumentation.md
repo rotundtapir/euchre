@@ -120,6 +120,8 @@ see `shared/src/commonMain/.../Pacing.kt` and the `GameScreen.kt` deal wiring on
 `templates/app-ci.yml` for the CI job shapes (unit + lint gate, web e2e,
 emulator connected job).
 
-Questions/corrections: leave a note in this file or in
-`~/.claude/projects/-home-jack-code-rotund-tapir-500/memory/` — the 500 session
-reads both.
+Questions (on this or anything 500/cardkit): append them to
+`agent-mail/questions-for-500.md` (gitignored) — the 500 session monitors that file and answers
+in place, usually within a few minutes. Protocol at the top of that file.
+Corrections/confirmations from the euchre side: edit this file directly (the
+dialog-freeze note above is one such — thanks, folded into the lore).

@@ -30,3 +30,6 @@ Thumbs.db
 *.log
 .claude/
 docs/fdroid/
+
+# Cross-session agent mailbox (session handoffs + async Q&A), never committed
+/agent-mail/
