@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception
+# Euchre's server only. TLS, HTTP/3 and routing come from the shared Caddy that lives in the 500
+# repo's compose project — this container joins the external `edge` network so that Caddy can reach
+# it, and drops its vhost into /opt/caddy-sites (see sites/euchre.caddy). That split is what lets the
+# two games deploy on their own cadences without either pipeline touching the other's config.
+#
+# CI writes IMAGE_TAG (and any overrides) into a sibling .env; self-hosters create their own. The
+# server publishes NO host ports, so a stray firewall gap cannot expose it.
+services:
+  server:
+    image: ghcr.io/rotundtapir/euchre-server:${IMAGE_TAG:-latest}
+    container_name: euchre-server     # stable name for fail2ban's journald match
+    restart: unless-stopped
+    expose:
+      - "8080"                         # internal only — never map to a host port
+    environment:
+      # Sized as a pair with the 500 server on this 1 GB box: keep both games' heap and mem_limit
+      # identical so the pairing is enforced by the runtime, not just by the runbook.
+      JAVA_OPTS: "-Xms32m -Xmx144m -XX:MaxMetaspaceSize=80m"
+      TRUST_PROXY: "true"              # X-Forwarded-For comes from Caddy
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://rotundtapir.github.io}
+      MIN_APP_VERSION: ${MIN_APP_VERSION:-0.2.0}
+      DATA_DIR: "/data"                # room snapshots: in-flight games survive a restart/deploy
+    volumes:
+      - euchre_data:/data
+    mem_limit: 288m
+    networks: [edge]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+# Created once on the box with `docker network create edge`; the shared Caddy joins it too.
+networks:
+  edge:
+    name: edge
+    external: true
+
+volumes:
+  euchre_data:

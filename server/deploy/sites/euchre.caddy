@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception
+# Euchre's vhost for the shared Caddy, rsynced to /opt/caddy-sites/euchre.caddy by this repo's deploy
+# job. Caddy imports every file in that directory; each game owns exactly one, so neither deploy can
+# rewrite the other's routing.
+#
+# The hostname is literal rather than an env var: the shared Caddy's environment belongs to the 500
+# compose project, and a variable it does not set would silently resolve to empty. `*.29022617.xyz`
+# is a wildcard A and AAAA record pointing at the VPS, so no DNS change is needed to add a game.
+euchre.29022617.xyz {
+	encode gzip
+
+	# Admin + metrics are for on-box use only (docker exec / curl over SSH); never expose them.
+	respond /admin* 403
+	respond /metrics 403
+
+	# Caddy proxies WebSocket upgrades transparently and does not time out established streams, so
+	# long-lived game sockets are safe with no extra config. It sets X-Forwarded-For for the server.
+	reverse_proxy euchre-server:8080
+}
