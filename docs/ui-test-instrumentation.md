@@ -125,3 +125,32 @@ Questions (on this or anything 500/cardkit): append them to
 in place, usually within a few minutes. Protocol at the top of that file.
 Corrections/confirmations from the euchre side: edit this file directly (the
 dialog-freeze note above is one such — thanks, folded into the lore).
+
+## Online tests (added with multiplayer in 0.2.0)
+
+The online paths need a real server, which changes how these suites are run and what they can
+assert.
+
+**Web (`web/e2e/tests/online.spec.ts`).** `playwright.config.ts` boots two servers: the static one
+serving the production distribution, and the game server from `./gradlew :server:installDist` with
+`DEV_MODE=true ALLOWED_ORIGINS=* MIN_APP_VERSION=0.0.0 DATA_DIR=.server-data`. `DEV_MODE` relaxes the
+per-IP caps and honours a client-supplied seed; `DATA_DIR` is what lets a restart test resume a game.
+This is **the only stage that exercises the wasm client against a server** — 500 shipped a
+wasm-only serialization break that every JVM suite passed, so treat a green JVM run as saying nothing
+about the browser client.
+
+Three constraints on writing these specs, each learned the hard way:
+
+- **Compose `testTag`s are invisible to the wasm accessibility mirror.** They are for the Android
+  suite. Locate by role or visible text; that is why neither this suite nor 500's uses
+  `getByTestId`.
+- **A `?joinCode=` link opens straight into online mode**, so `awaitAppBoot` (which waits for a
+  home-screen button) times out. Wait for `#loading` to clear instead.
+- **The display name gates the create/join buttons**, so pass `?playerName=` — otherwise the run
+  cannot leave the entry screen. `?serverUrl=` points at the local server. Both are session-only and
+  never persisted, so a link cannot repoint someone's saved online settings.
+
+**Android.** `EXTRA_SERVER_URL` and `EXTRA_PLAYER_NAME` mirror those params; from the emulator the
+host's dev server is `ws://10.0.2.2:8080`, started with `DEV_MODE=true ./gradlew :server:run`. An
+online instrumented test should **self-skip when no server answers**, so the suite stays green on a
+runner without one — CI's `android-e2e` job does not start a server.

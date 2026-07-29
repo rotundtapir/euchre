@@ -37,11 +37,11 @@ jobs:
       - name: Static analysis (detekt + CPD)
         run: ./gradlew qualityCheck
 
-      - name: Unit tests (engine + ai) and lint
-        run: ./gradlew :engine:jvmTest :ai:jvmTest lint
+      - name: Unit tests (engine + ai + net + server) and lint
+        run: ./gradlew :engine:jvmTest :ai:jvmTest :net:jvmTest :server:test lint
 
-      - name: Coverage verification (engine + ai)
-        run: ./gradlew :engine:koverVerify :ai:koverVerify
+      - name: Coverage verification (engine + ai + net)
+        run: ./gradlew :engine:koverVerify :ai:koverVerify :net:koverVerify
 
       # The UI module's own tests: the ViewModel/pacing contract, settings persistence, sound
       # triggers and the pure table helpers. They need no emulator (nothing touches the Android
@@ -54,6 +54,12 @@ jobs:
 
       - name: Build web distribution (wasmJs)
         run: ./gradlew :web:wasmJsBrowserDistribution
+
+      # online.spec.ts boots this and talks to it over a real WebSocket. It is the only stage that
+      # exercises the wasm client against the server — the JVM suites cannot see a wasm-only
+      # serialization failure, and one reached 500 exactly that way.
+      - name: Build the game server (for the online e2e)
+        run: ./gradlew :server:installDist
 
       # E2E smoke of the production wasm artifact: served under a /euchre/ prefix (the Pages
       # subpath), driven with Playwright against the runner's Chrome (WasmGC-capable).
@@ -325,3 +331,105 @@ jobs:
           path: web/build/dist/wasmJs/productionExecutable
       - id: deployment
         uses: actions/deploy-pages@v5
+
+  # Build the server image and push it to GHCR on a release tag. The dist is built with Gradle (cache
+  # reuse) then copied into a thin image; multi-arch so self-hosters on ARM (Raspberry Pi) can pull.
+  publish-server-image:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # push to GHCR
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Build server distribution
+        run: ./gradlew :server:installDist
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/rotundtapir/euchre-server
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest
+      - uses: docker/build-push-action@v7
+        with:
+          context: server
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+
+  # Deploy to the VPS the 500 server already runs on. Euchre owns its own compose project and exactly
+  # one file in the shared /opt/caddy-sites; TLS and routing come from the Caddy in 500's project.
+  # Secrets: DEPLOY_SSH_KEY, DEPLOY_HOST (the IP), DEPLOY_PORT, DEPLOY_KNOWN_HOSTS.
+  deploy-server:
+    needs: publish-server-image
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    # Two euchre tags pushed close together must not interleave pin/up on the same box.
+    concurrency:
+      group: deploy-server
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: Sync deploy files
+        run: |
+          rsync -e "ssh -p ${{ secrets.DEPLOY_PORT }} -i ~/.ssh/id_ed25519" -av \
+            server/deploy/docker-compose.yml \
+            root@${{ secrets.DEPLOY_HOST }}:/opt/euchre-server/
+          # Only euchre's vhost. The shared Caddy imports every file in this directory and each game
+          # owns one, so this must never touch 500's.
+          rsync -e "ssh -p ${{ secrets.DEPLOY_PORT }} -i ~/.ssh/id_ed25519" -av \
+            server/deploy/sites/euchre.caddy \
+            root@${{ secrets.DEPLOY_HOST }}:/opt/caddy-sites/
+      - name: Pin version and bring up
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ssh -p "${{ secrets.DEPLOY_PORT }}" -i ~/.ssh/id_ed25519 root@"${{ secrets.DEPLOY_HOST }}" bash -s <<EOF
+          set -e
+          cd /opt/euchre-server
+          # No drain-and-wait: room snapshots (DATA_DIR) survive the restart and clients reconnect
+          # into their seats. A deploy that bumps the snapshot schema version must drain MANUALLY
+          # first so games finish on the old code — see 500's docs/server-runbook.md.
+          touch .env
+          grep -q '^IMAGE_TAG=' .env || echo 'IMAGE_TAG=latest' >> .env
+          sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${VERSION}/" .env
+          docker compose pull server
+          docker compose up -d --wait
+          # Unconditional undrain: a fresh container starts undrained (no-op), but a same-version
+          # re-run leaves the old container in place, and if that one was drained it would refuse
+          # every new lobby while /health still 200s and CI goes green.
+          docker exec euchre-server wget -qO- --post-data='' http://localhost:8080/admin/undrain || true
+          # Pick up this game's vhost. Caddy lives in 500's compose project, so go via the container
+          # name rather than `docker compose exec`.
+          docker exec 500-caddy caddy reload --config /etc/caddy/Caddyfile || true
+          EOF
+      - name: Verify the deployment is serving
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsS https://euchre.29022617.xyz/health | tee /dev/stderr | grep -q '"status":"ok"'; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::euchre server did not become healthy"; exit 1
