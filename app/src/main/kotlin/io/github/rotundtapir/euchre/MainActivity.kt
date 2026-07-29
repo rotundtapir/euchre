@@ -60,6 +60,13 @@ class MainActivity : ComponentActivity() {
          * on why a link must not be able to repoint someone's saved online settings.
          */
         const val EXTRA_SERVER_URL = "io.github.rotundtapir.euchre.SERVER_URL"
+
+        /**
+         * Intent extra prefilling the online display name. The name gates the create/join buttons,
+         * so an instrumented run needs this to get past the entry screen without typing on the
+         * canvas. Session-only, never persisted.
+         */
+        const val EXTRA_PLAYER_NAME = "io.github.rotundtapir.euchre.PLAYER_NAME"
     }
 
     private lateinit var monetization: Monetization
@@ -149,6 +156,7 @@ class MainActivity : ComponentActivity() {
                         linkSharer = ::shareInvite,
                         joinCodeOverride = joinCode,
                         serverUrlOverride = intent?.getStringExtra(EXTRA_SERVER_URL),
+                        playerNameOverride = intent?.getStringExtra(EXTRA_PLAYER_NAME),
                     )
                 }
             }

@@ -33,3 +33,6 @@ docs/fdroid/
 
 # Cross-session agent mailbox (session handoffs + async Q&A), never committed
 /agent-mail/
+
+# Room snapshots written by the e2e game server (see web/e2e/playwright.config.ts).
+web/e2e/.server-data/

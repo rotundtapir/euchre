@@ -54,17 +54,7 @@ fun main() {
         resourcePathMapping { path -> "./$path" }
     }
 
-    val params = URLSearchParams(window.location.search.toJsString())
-    val seedOverride = params.get("seed")?.toLongOrNull()
-    val animationSpeedOverride = AnimationSpeed.fromName(params.get("animationSpeed"))
-    val soundVolumeOverride = params.get("soundVolume")?.toFloatOrNull()
-    val botSkillOverride = BotSkill.fromName(params.get("botSkill"))
-    val aiBudgetMillisOverride = params.get("aiBudgetMs")?.toLongOrNull()
-    // Session-only online overrides. Never written to localStorage: a shared link that could
-    // permanently repoint someone's online play would also control the trusted "update required"
-    // text they are shown, so these last exactly as long as the page does.
-    val serverUrlOverride = params.get("serverUrl")?.takeIf { it.isNotBlank() }
-    val joinCodeOverride = params.get(JoinLink.PARAM)?.let(JoinLink::normalizeCode)
+    val overrides = urlOverrides()
 
     ComposeViewport(document.body!!) {
         // The embedded default font lacks the symbols the UI draws (card suits, arrows, the
@@ -111,13 +101,14 @@ fun main() {
                         commit = AppBuildInfo.COMMIT,
                     ),
                     // A ?seed= parameter pins every new game to it, which is what the e2e suite wants.
-                    nextSeed = { seedOverride ?: Random.nextLong() },
-                    animationSpeedOverride = animationSpeedOverride,
-                    soundVolumeOverride = soundVolumeOverride,
-                    botSkillOverride = botSkillOverride,
-                    aiBudgetMillisOverride = aiBudgetMillisOverride,
-                    serverUrlOverride = serverUrlOverride,
-                    joinCodeOverride = joinCodeOverride,
+                    nextSeed = { overrides.seed ?: Random.nextLong() },
+                    animationSpeedOverride = overrides.animationSpeed,
+                    soundVolumeOverride = overrides.soundVolume,
+                    botSkillOverride = overrides.botSkill,
+                    aiBudgetMillisOverride = overrides.aiBudgetMillis,
+                    serverUrlOverride = overrides.serverUrl,
+                    joinCodeOverride = overrides.joinCode,
+                    playerNameOverride = overrides.playerName,
                     // A page reload starts a fresh wasm instance with no memory of its seat; the
                     // token in sessionStorage is the only thing that lets it reclaim one.
                     sessionTokenStore = remember { SessionStorageTokenStore() },
@@ -126,4 +117,34 @@ fun main() {
             }
         }
     }
+}
+
+/**
+ * The overrides a URL can carry. All are session-only — none is ever written to localStorage.
+ * That matters most for [serverUrl] and [playerName]: a link that could permanently repoint
+ * someone's online play would also control the trusted "update required" text they are shown.
+ */
+private class UrlOverrides(
+    val seed: Long?,
+    val animationSpeed: AnimationSpeed?,
+    val soundVolume: Float?,
+    val botSkill: BotSkill?,
+    val aiBudgetMillis: Long?,
+    val serverUrl: String?,
+    val joinCode: String?,
+    val playerName: String?,
+)
+
+private fun urlOverrides(): UrlOverrides {
+    val params = URLSearchParams(window.location.search.toJsString())
+    return UrlOverrides(
+        seed = params.get("seed")?.toLongOrNull(),
+        animationSpeed = AnimationSpeed.fromName(params.get("animationSpeed")),
+        soundVolume = params.get("soundVolume")?.toFloatOrNull(),
+        botSkill = BotSkill.fromName(params.get("botSkill")),
+        aiBudgetMillis = params.get("aiBudgetMs")?.toLongOrNull(),
+        serverUrl = params.get("serverUrl")?.takeIf { it.isNotBlank() },
+        joinCode = params.get(JoinLink.PARAM)?.let(JoinLink::normalizeCode),
+        playerName = params.get("playerName")?.takeIf { it.isNotBlank() },
+    )
 }

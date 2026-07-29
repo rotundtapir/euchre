@@ -77,6 +77,10 @@ fun EuchreApp(
     // Test override (web URL param / intent extra): point online play at a local server so e2e can
     // run against one. Session-only, never persisted — see the comment at its use below.
     serverUrlOverride: String? = null,
+    // Test override: prefill the online display name. The name gates the create/join buttons, so
+    // without it an automated run cannot get past the entry screen — and typing into the Compose
+    // canvas is exactly what these overrides exist to avoid. Session-only, like the rest.
+    playerNameOverride: String? = null,
     // Where the online session token outlives this composition (web: the tab's sessionStorage), so
     // a page reload can resume its lobby/game seat. Defaults to in-memory only.
     sessionTokenStore: SessionTokenStore = SessionTokenStore.None,
@@ -106,6 +110,7 @@ fun EuchreApp(
         soundVolumeOverride = soundVolumeOverride,
         botSkillOverride = botSkillOverride,
         serverUrlOverride = serverUrlOverride,
+        playerNameOverride = playerNameOverride,
     )
     // One sound engine for the whole app: reacts to game-state transitions and hands back the play
     // function the dealing animation's sound hook uses for shuffle/deal effects.
@@ -282,6 +287,7 @@ private fun rememberSettingsControls(
     soundVolumeOverride: Float?,
     botSkillOverride: BotSkill?,
     serverUrlOverride: String?,
+    playerNameOverride: String?,
 ): SettingsControls {
     val persistedSpeed by settings.animationSpeed.collectAsState(initial = SettingsDefaults.ANIMATION_SPEED)
     val sortByDefault by settings.sortHandByDefault.collectAsState(initial = SettingsDefaults.SORT_HAND_BY_DEFAULT)
@@ -301,6 +307,9 @@ private fun rememberSettingsControls(
     // control the trusted "update required" text) even after the tab is closed. Same treatment as
     // the animation-speed / sound-volume test overrides.
     val serverUrl = serverUrlOverride ?: persistedServerUrl
+    // Same session-only treatment: an override prefills the field but is never written back, so a
+    // link cannot rename someone permanently.
+    val onlineName = playerNameOverride ?: playerName
     val houseRules = EuchreHouseRules(stickTheDealer, defendAlone, bennyEnabled, farmersHand)
     return SettingsControls(
         animationSpeed = animationSpeed,
@@ -317,7 +326,7 @@ private fun rememberSettingsControls(
         onSetHouseRules = { value -> scope { settings.applyHouseRules(houseRules, value) } },
         serverUrl = serverUrl,
         onSetServerUrl = { value -> scope { settings.setServerUrl(value) } },
-        playerName = playerName,
+        playerName = onlineName,
         onSetPlayerName = { value -> scope { settings.setPlayerName(value) } },
     )
 }

@@ -18,9 +18,24 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     viewport: { width: 500, height: 950 },
   },
-  webServer: {
-    command: 'node serve.mjs',
-    url: 'http://localhost:9600/euchre/',
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: 'node serve.mjs',
+      url: 'http://localhost:9600/euchre/',
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      // The online game server, for online.spec.ts. Built by `./gradlew :server:installDist`.
+      // DEV_MODE relaxes the rate/connection caps and honours a client-supplied seed;
+      // ALLOWED_ORIGINS=* lets the localhost page connect; MIN_APP_VERSION=0.0.0 accepts whatever
+      // version the built web client reports. DATA_DIR gives it somewhere to snapshot rooms, which
+      // restart.spec.ts needs to survive a kill.
+      command:
+        'PORT=8080 DEV_MODE=true ALLOWED_ORIGINS=* MIN_APP_VERSION=0.0.0 DATA_DIR=.server-data ' +
+        '../../server/build/install/server/bin/server',
+      url: 'http://localhost:8080/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+  ],
 });
