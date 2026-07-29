@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception -->
-<!--
-  Deliberately NO android.permission.INTERNET: v0.1.0 is offline-only and PRIVACY.md promises the
-  FOSS and web builds make no network connections at all. The play flavor inherits INTERNET through
-  manifest merge from the Google Mobile Ads module — the foss build graph never sees it. Do not add
-  the permission here; the FOSS APK is checked for it in CI.
--->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Online multiplayer needs this. Until 0.2.0 the app deliberately requested NO permissions at
+      all, and PRIVACY.md said it was incapable of networking; adding online play made that claim
+      false, so both changed together. Offline play still opens no connections — the app connects
+      only while you are in the online section, and only to the server you point it at.
+
+      CI asserts the FOSS APK requests INTERNET *and nothing else*, so this cannot quietly grow into
+      a longer list; adding one means updating that allowlist and PRIVACY.md in the same change.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
@@ -23,6 +28,21 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+              Invite links. autoVerify makes Android open these in the app without a chooser, which
+              needs assetlinks.json on the Pages site listing this app's signing certificates —
+              without it the link still works, it just goes to the browser instead.
+              singleTask above is why MainActivity handles these through onNewIntent.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https"
+                    android:host="rotundtapir.github.io"
+                    android:pathPrefix="/euchre/" />
             </intent-filter>
         </activity>
     </application>

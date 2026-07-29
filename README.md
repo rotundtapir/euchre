@@ -22,7 +22,7 @@ Online multiplayer (cross-play with the browser, shared server with 500) is plan
 
 | Flavor | Distribution | Monetization |
 | --- | --- | --- |
-| `foss` | GitHub releases, F-Droid (planned) | None. No ads, no trackers, no network access at all; a donation link. |
+| `foss` | GitHub releases, F-Droid (planned) | None. No ads, no trackers, no analytics; online play is opt-in and self-hostable; a donation link. |
 | `play` | Google Play (planned) | Banner + interstitial ads, remove-ads purchase, UMP consent. |
 
 The `foss` release build is reproducible: rebuild it from a clean checkout and only the signing

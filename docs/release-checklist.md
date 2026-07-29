@@ -57,7 +57,15 @@ in for **release builds only** — never point debug builds at live units (inval
       :shared:testDebugUnitTest :engine:koverVerify :ai:koverVerify assembleFossRelease`.
 - [ ] FOSS purity: `./gradlew :app:dependencies --configuration fossReleaseRuntimeClasspath | grep -Ei
       'gms|billing|firebase|monetization-play'` prints nothing.
-- [ ] No-network invariant: `aapt dump permissions` on the FOSS APK shows **no** INTERNET permission.
+- [ ] Permission allowlist: `aapt dump permissions` on the FOSS APK shows `INTERNET` and **nothing
+      else**. CI gates this; re-check by hand whenever the manifest changes, and update PRIVACY.md in
+      the same change if the list grows.
+- [ ] Server: the `v*` tag published `ghcr.io/rotundtapir/euchre-server` and the deploy job reported
+      `/health` ok on the euchre hostname. If this release changed `RoomSnapshot.CURRENT_VERSION`,
+      drain the server **first** (`POST /admin/drain`, wait for `activeGames:0`) so in-flight games
+      finish on the old code instead of being dropped at restore.
+- [ ] `MIN_APP_VERSION` still admits the oldest build you intend to support online; raising it tells
+      every older client to update, so raise it deliberately, not as housekeeping.
 - [ ] Emulator suite green: `ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedFossDebugAndroidTest`.
 - [ ] Web e2e green: `cd web/e2e && npx playwright test`.
 - [ ] Tag `vX.Y.Z` → CI runs release → verify-reproducible → publish-release + deploy-web; confirm

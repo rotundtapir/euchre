@@ -33,6 +33,7 @@ import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.configureWebResources
 import org.jetbrains.compose.resources.preloadFont
+import io.github.rotundtapir.euchre.online.JoinLink
 import org.w3c.dom.url.URLSearchParams
 
 /** localStorage key prefix for this app's settings; every entry is `euchre.<SettingsKeys name>`. */
@@ -59,6 +60,11 @@ fun main() {
     val soundVolumeOverride = params.get("soundVolume")?.toFloatOrNull()
     val botSkillOverride = BotSkill.fromName(params.get("botSkill"))
     val aiBudgetMillisOverride = params.get("aiBudgetMs")?.toLongOrNull()
+    // Session-only online overrides. Never written to localStorage: a shared link that could
+    // permanently repoint someone's online play would also control the trusted "update required"
+    // text they are shown, so these last exactly as long as the page does.
+    val serverUrlOverride = params.get("serverUrl")?.takeIf { it.isNotBlank() }
+    val joinCodeOverride = params.get(JoinLink.PARAM)?.let(JoinLink::normalizeCode)
 
     ComposeViewport(document.body!!) {
         // The embedded default font lacks the symbols the UI draws (card suits, arrows, the
@@ -110,6 +116,12 @@ fun main() {
                     soundVolumeOverride = soundVolumeOverride,
                     botSkillOverride = botSkillOverride,
                     aiBudgetMillisOverride = aiBudgetMillisOverride,
+                    serverUrlOverride = serverUrlOverride,
+                    joinCodeOverride = joinCodeOverride,
+                    // A page reload starts a fresh wasm instance with no memory of its seat; the
+                    // token in sessionStorage is the only thing that lets it reclaim one.
+                    sessionTokenStore = remember { SessionStorageTokenStore() },
+                    linkSharer = remember { BrowserLinkSharer() },
                 )
             }
         }

@@ -92,15 +92,31 @@ jobs:
             echo "::error::FOSS build graph contains a proprietary dependency"; exit 1
           fi
 
-      # PRIVACY.md promises the FOSS build makes no network connections at all, and the manifest
-      # backs that by never declaring INTERNET. Assert it on the built artifact, not the source.
-      - name: Verify the FOSS APK requests no INTERNET permission
+      # PRIVACY.md is specific about what the FOSS build may do, and permissions are how that is
+      # enforced on the artifact rather than in the source. Online play needs INTERNET, so this is an
+      # allowlist rather than the flat "no permissions" gate it replaces: INTERNET must be present
+      # (its absence would mean a lost manifest change, i.e. a build that cannot play online), and
+      # anything else has to be added here deliberately, in review, with PRIVACY.md updated to match.
+      - name: Verify the FOSS APK requests only the permissions we allow
         run: |
           AAPT2="$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | tail -1)"
           "$AAPT2" dump permissions app/build/outputs/apk/foss/debug/app-foss-debug.apk > foss-perms.txt
           cat foss-perms.txt
-          if grep -q 'android.permission.INTERNET' foss-perms.txt; then
-            echo "::error::the FOSS APK requests INTERNET — see PRIVACY.md"; exit 1
+          sed -n "s/^ *uses-permission: name='\([^']*\)'.*/\1/p" foss-perms.txt | sort -u > got.txt
+          # The allowlist. INTERNET is online play. The DYNAMIC_RECEIVER_NOT_EXPORTED one is
+          # app-scoped and injected by AndroidX: it is how androidx.core keeps its dynamically
+          # registered broadcast receivers from being world-accessible, so it grants this app no
+          # capability over the device and is not privacy-relevant. It was already in every build —
+          # the previous gate only grepped for INTERNET, so it never had cause to mention it.
+          printf '%s\n' \
+            android.permission.INTERNET \
+            io.github.rotundtapir.euchre.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION \
+            | sort -u > allowed.txt
+          if ! grep -qx 'android.permission.INTERNET' got.txt; then
+            echo "::error::the FOSS APK does not request INTERNET — online play would not work"; exit 1
+          fi
+          if ! diff -u allowed.txt got.txt; then
+            echo "::error::the FOSS APK requests a permission outside the allowlist — see PRIVACY.md"; exit 1
           fi
 
   # On-device (emulator) integration suite, so the Android side gates merges the way the web e2e
