@@ -8,7 +8,9 @@ import io.github.rotundtapir.cardkit.ui.settings.KeyValueStore
 import io.github.rotundtapir.cardkit.ui.settings.booleanSetting
 import io.github.rotundtapir.cardkit.ui.settings.enumSetting
 import io.github.rotundtapir.cardkit.ui.settings.floatSetting
+import io.github.rotundtapir.cardkit.ui.settings.stringSetting
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /**
  * Storage keys. These are persisted strings — renaming one silently resets that setting for every
@@ -24,6 +26,8 @@ object SettingsKeys {
     const val DEFEND_ALONE = "defend_alone"
     const val BENNY_ENABLED = "benny_enabled"
     const val FARMERS_HAND = "farmers_hand"
+    const val SERVER_URL = "server_url"
+    const val PLAYER_NAME = "player_name"
 
     /** Per-lesson completion flag: `"${LESSON_DONE_PREFIX}$lessonId"`. */
     const val LESSON_DONE_PREFIX = "lesson_done_"
@@ -41,6 +45,12 @@ object SettingsDefaults {
     const val DEFEND_ALONE = false
     const val BENNY_ENABLED = false
     const val FARMERS_HAND = false
+
+    /** The official online server. Overridable in settings so a self-host or a dev box can be used. */
+    const val SERVER_URL = "wss://euchre.29022617.xyz"
+
+    /** Empty until the player names themselves on the online entry screen. */
+    const val PLAYER_NAME = ""
 }
 
 /**
@@ -61,6 +71,12 @@ interface SettingsRepository {
     val defendAlone: Flow<Boolean>
     val bennyEnabled: Flow<Boolean>
     val farmersHand: Flow<Boolean>
+
+    /** The online game server URL (`wss://…`); [SettingsDefaults.SERVER_URL] when unset. */
+    val serverUrl: Flow<String>
+
+    /** The player's chosen display name for online games; [SettingsDefaults.PLAYER_NAME] when unset. */
+    val playerName: Flow<String>
     fun lessonDone(lessonId: String): Flow<Boolean>
 
     suspend fun setAnimationSpeed(value: AnimationSpeed)
@@ -72,6 +88,8 @@ interface SettingsRepository {
     suspend fun setDefendAlone(value: Boolean)
     suspend fun setBennyEnabled(value: Boolean)
     suspend fun setFarmersHand(value: Boolean)
+    suspend fun setServerUrl(value: String)
+    suspend fun setPlayerName(value: String)
     suspend fun setLessonDone(lessonId: String, value: Boolean)
 }
 
@@ -99,6 +117,13 @@ class KeyValueSettingsRepository(private val store: KeyValueStore) : SettingsRep
     override val farmersHand: Flow<Boolean> =
         store.booleanSetting(SettingsKeys.FARMERS_HAND, SettingsDefaults.FARMERS_HAND)
 
+    // Blank falls back to the official server: a cleared field must not leave online play pointed at
+    // an address that can never connect.
+    override val serverUrl: Flow<String> = store.string(SettingsKeys.SERVER_URL)
+        .map { stored -> stored?.takeIf { it.isNotBlank() } ?: SettingsDefaults.SERVER_URL }
+    override val playerName: Flow<String> =
+        store.stringSetting(SettingsKeys.PLAYER_NAME, SettingsDefaults.PLAYER_NAME)
+
     override fun lessonDone(lessonId: String): Flow<Boolean> =
         store.booleanSetting(SettingsKeys.LESSON_DONE_PREFIX + lessonId, false)
 
@@ -122,6 +147,10 @@ class KeyValueSettingsRepository(private val store: KeyValueStore) : SettingsRep
     override suspend fun setBennyEnabled(value: Boolean) = store.putBoolean(SettingsKeys.BENNY_ENABLED, value)
 
     override suspend fun setFarmersHand(value: Boolean) = store.putBoolean(SettingsKeys.FARMERS_HAND, value)
+
+    override suspend fun setServerUrl(value: String) = store.putString(SettingsKeys.SERVER_URL, value.trim())
+
+    override suspend fun setPlayerName(value: String) = store.putString(SettingsKeys.PLAYER_NAME, value)
 
     override suspend fun setLessonDone(lessonId: String, value: Boolean) =
         store.putBoolean(SettingsKeys.LESSON_DONE_PREFIX + lessonId, value)

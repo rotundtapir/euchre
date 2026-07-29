@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception
 package io.github.rotundtapir.euchre
 
+import io.github.rotundtapir.cardkit.ui.deal.dealTimings
+import io.github.rotundtapir.cardkit.ui.pacing.PacingGates
 import io.github.rotundtapir.cardkit.ui.pacing.TableTransitions
+import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
+import io.github.rotundtapir.euchre.engine.HAND_SIZE
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Projects a [EuchrePlayerView] onto cardkit-ui's pacing/sound seam.
@@ -31,6 +36,26 @@ data class EuchreTransitions(private val view: EuchrePlayerView) : TableTransiti
 
 /** The pacing/sound projection of this view. */
 val EuchrePlayerView.transitions: EuchreTransitions get() = EuchreTransitions(this)
+
+/** Slack over the measured deal animation before the gates' deadlock backstop fires. */
+private const val PAUSE_SLACK_MILLIS = 250L
+
+/**
+ * Cardkit's [PacingGates] wired with Euchre's deal-pause estimate: the shuffle, flight and flip
+ * budgets of the shared deal animation for a five-card hand, plus a little slack. The estimate only
+ * scales the gates' deadlock backstop — the deal-done signal is what actually releases the first
+ * bidder — so a lost signal can never wedge the game.
+ *
+ * Shared by the local [EuchreViewModel] and the online client, so both modes pace identically.
+ */
+fun euchrePacingGates(
+    animationSpeed: StateFlow<AnimationSpeed>,
+    holdTricks: StateFlow<Boolean>,
+): PacingGates = PacingGates(animationSpeed, holdTricks) { speed ->
+    with(dealTimings(speed)) {
+        shuffleMillis + flyBudgetMillis + flipTotalMillis(HAND_SIZE) + PAUSE_SLACK_MILLIS
+    }
+}
 
 /**
  * An engine hand number as cardkit's gates count them.

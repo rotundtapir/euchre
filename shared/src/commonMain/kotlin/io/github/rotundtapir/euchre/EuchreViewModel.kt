@@ -8,7 +8,6 @@ import io.github.rotundtapir.cardkit.core.GameDriver
 import io.github.rotundtapir.cardkit.core.Player
 import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.cardkit.core.StrategyPlayer
-import io.github.rotundtapir.cardkit.ui.deal.dealTimings
 import io.github.rotundtapir.cardkit.ui.pacing.PacingGates
 import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
 import io.github.rotundtapir.cardkit.ui.settings.BotSkill
@@ -20,7 +19,6 @@ import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
 import io.github.rotundtapir.euchre.engine.EuchreRules
 import io.github.rotundtapir.euchre.engine.EuchreState
-import io.github.rotundtapir.euchre.engine.HAND_SIZE
 import io.github.rotundtapir.euchre.engine.PLAYER_COUNT
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
@@ -58,15 +56,8 @@ class EuchreViewModel : ViewModel() {
     private val animationSpeed = MutableStateFlow(SettingsDefaults.ANIMATION_SPEED)
     private val holdTricks = MutableStateFlow(SettingsDefaults.HOLD_TRICKS)
 
-    /**
-     * Signal-driven bot pacing. The deal-pause estimate only scales the deadlock backstop, so a
-     * lost deal-done signal can never wedge the game; Euchre deals five cards, not 500's ten.
-     */
-    val pacing = PacingGates(animationSpeed, holdTricks) { speed ->
-        with(dealTimings(speed)) {
-            shuffleMillis + flyBudgetMillis + flipTotalMillis(HAND_SIZE) + PAUSE_SLACK_MILLIS
-        }
-    }
+    /** Signal-driven bot pacing, shared with the online client (see [euchrePacingGates]). */
+    val pacing = euchrePacingGates(animationSpeed, holdTricks)
 
     /** Bot display names for this game, by seat (seat 0 is the human). */
     var botNames: Map<Seat, String> = emptyMap()
@@ -205,9 +196,6 @@ class EuchreViewModel : ViewModel() {
     }
 
     companion object {
-        /** Slack over the measured deal animation before the backstop fires. */
-        private const val PAUSE_SLACK_MILLIS = 250L
-
         /** Before any hand has been seen; below every real hand number. */
         private const val NO_HAND = -1
 
