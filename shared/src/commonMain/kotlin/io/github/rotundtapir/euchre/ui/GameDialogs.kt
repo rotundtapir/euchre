@@ -316,11 +316,12 @@ private fun ScoreSheetRow(
 
 /** "Leave game?" — the current game is not saved, so make the player mean it. */
 @Composable
-fun LeaveGameDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+fun LeaveGameDialog(onConfirm: () -> Unit, onDismiss: () -> Unit, body: String? = null) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Leave game?") },
-        text = { Text("The current game will be lost.") },
+        // An online game overrides the body: leaving hands the seat to a bot, it is not a loss.
+        text = { Text(body ?: "The current game will be lost.") },
         confirmButton = {
             TextButton(onClick = onConfirm, modifier = Modifier.testTag("confirmLeave")) { Text("Leave") }
         },

@@ -10,6 +10,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,6 +34,7 @@ import io.github.rotundtapir.cardkit.ui.settings.SliderRow
 import io.github.rotundtapir.cardkit.ui.settings.SupportSection
 import io.github.rotundtapir.cardkit.ui.settings.SwitchRow
 import io.github.rotundtapir.euchre.EuchreHouseRules
+import io.github.rotundtapir.euchre.SettingsDefaults
 import io.github.rotundtapir.euchre.SettingsRepository
 
 /**
@@ -118,6 +120,22 @@ fun SettingsDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+
+                HorizontalDivider()
+                SectionHeader("Online")
+                OutlinedTextField(
+                    value = settings.serverUrl,
+                    onValueChange = settings.onSetServerUrl,
+                    label = { Text("Game server") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("serverUrl"),
+                )
+                if (settings.serverUrl != SettingsDefaults.SERVER_URL) {
+                    TextButton(
+                        onClick = { settings.onSetServerUrl(SettingsDefaults.SERVER_URL) },
+                        modifier = Modifier.testTag("serverUrlReset"),
+                    ) { Text("Reset to official server") }
+                }
 
                 HorizontalDivider()
                 SupportSection(

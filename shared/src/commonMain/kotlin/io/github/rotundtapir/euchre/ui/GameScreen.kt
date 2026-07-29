@@ -10,9 +10,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -28,9 +34,12 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.cardkit.monetization.Monetization
+import io.github.rotundtapir.cardkit.net.Emote
+import io.github.rotundtapir.cardkit.net.EmoteReceived
 import io.github.rotundtapir.cardkit.ui.SoundEffect
 import io.github.rotundtapir.cardkit.ui.deal.DealAnimationState
 import io.github.rotundtapir.cardkit.ui.deal.DealingHandRow
@@ -41,12 +50,15 @@ import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
 import io.github.rotundtapir.cardkit.ui.tutorial.TutorialAnchors
 import io.github.rotundtapir.cardkit.ui.tutorial.TutorialPage
 import io.github.rotundtapir.cardkit.ui.tutorial.TutorialPagesDialog
+import io.github.rotundtapir.cardkit.ui.tutorial.tutorialTarget
 import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePlayerView
 import io.github.rotundtapir.euchre.engine.HAND_SIZE
 import io.github.rotundtapir.euchre.transitions
 import io.github.rotundtapir.euchre.ui.tutorial.EuchreTutorialSession
 import io.github.rotundtapir.euchre.ui.tutorial.TutorialBubble
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.first
 
 /**
@@ -76,6 +88,12 @@ fun GameScreen(
     // Non-null while a tutorial lesson is running: the board is the same, but only the scripted
     // action is enabled, completed tricks are always held, and the lesson's own dialogs bookend it.
     tutorial: EuchreTutorialSession? = null,
+    // Online games override the leave-confirm body — leaving hands the seat to a bot, not a loss.
+    leaveConfirmText: String? = null,
+    // The server's turn clock, online only: milliseconds left for whoever is to act.
+    turnRemainingMillis: Long? = null,
+    // Non-null in an online game: adds the emote control to the top bar and shows incoming emotes.
+    online: OnlineGameControls? = null,
 ) {
     val animationSpeed = settings.animationSpeed
     var sortHand by rememberSaveable { mutableStateOf(settings.sortByDefault) }
@@ -96,6 +114,19 @@ fun GameScreen(
     var lessonComplete by rememberSaveable { mutableStateOf(false) }
     // Screen rects of the lesson's interaction targets (a button, a card, the felt), for the bubble.
     val tutorialAnchors = if (tutorial != null) remember { TutorialAnchors() } else null
+    // The most recent incoming emote, shown briefly as a speech bubble pointing at its sender;
+    // seatAnchors records each seat's on-screen position for the bubble to point at.
+    val seatAnchors = if (online != null) remember { TutorialAnchors() } else null
+    var latestEmote by remember { mutableStateOf<EmoteReceived?>(null) }
+    if (online != null) {
+        LaunchedEffect(online) {
+            online.incomingEmotes.collect { received ->
+                latestEmote = received
+                delay(EMOTE_TOAST_MILLIS)
+                latestEmote = null
+            }
+        }
+    }
 
     // The tallest the hand area has had to be this game; see the Box that measures it below.
     val density = LocalDensity.current
@@ -137,11 +168,16 @@ fun GameScreen(
                     view = view,
                     onOpenSettings = { showSettings = true },
                     onMenu = { showLeaveConfirm = true },
+                    trailing = if (online == null) {
+                        null
+                    } else {
+                        { OnlineBarControls(online, turnRemainingMillis) }
+                    },
                 )
                 // The turn card is only public once the deal has actually turned it over.
                 TrumpLine(view, botNames, upcardRevealed = dealShown)
                 Spacer(Modifier.height(12.dp))
-                OpponentsRow(view, botNames, dealState, dealShown)
+                OpponentsRow(view, botNames, dealState, dealShown, anchors = seatAnchors)
                 TrickArea(
                     view = view,
                     botNames = botNames,
@@ -188,19 +224,35 @@ fun GameScreen(
                         // A fresh hand whose shuffle has not run yet — held behind a result dialog,
                         // or simply not started: keep the cards and the buttons off screen.
                         !dealShown -> Box(Modifier.fillMaxWidth())
-                        else -> ActionArea(
-                            view = view,
-                            botNames = botNames,
-                            sortHand = sortHand,
-                            onToggleSort = { sortHand = !sortHand },
-                            onAction = onAction,
-                            tutorial = tutorial,
-                            anchors = tutorialAnchors,
-                        )
+                        // Wrapped so the local player's own seat has a rect too: an emote from us
+                        // (or a substituted bot in our seat) points at the hand, not at nothing.
+                        else -> Box(Modifier.fillMaxWidth().tutorialTarget(seatAnchors, seatAnchor(view.seat))) {
+                            ActionArea(
+                                view = view,
+                                botNames = botNames,
+                                sortHand = sortHand,
+                                onToggleSort = { sortHand = !sortHand },
+                                onAction = onAction,
+                                tutorial = tutorial,
+                                anchors = tutorialAnchors,
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
                 monetization.BannerSlot(Modifier.fillMaxWidth())
+            }
+            // Incoming emote, as a speech bubble pointing at its sender's seat.
+            val emote = latestEmote
+            if (emote != null && seatAnchors != null) {
+                seatAnchors[seatAnchor(emote.seat)]?.let { rect ->
+                    EmoteBubble(
+                        target = rect,
+                        overlayOrigin = dealState.overlayOrigin,
+                        text = "${seatLabel(view.seat, botNames, emote.seat)}: ${emoteLabel(emote.emote)}",
+                        tailDown = emote.seat == view.seat,
+                    )
+                }
             }
             // The packet currently in flight from the deck to a pile, drawn above everything.
             FlyingDealCard(dealState)
@@ -219,7 +271,11 @@ fun GameScreen(
         )
     }
     if (showLeaveConfirm) {
-        LeaveGameDialog(onConfirm = onExit, onDismiss = { showLeaveConfirm = false })
+        LeaveGameDialog(
+            onConfirm = onExit,
+            onDismiss = { showLeaveConfirm = false },
+            body = leaveConfirmText,
+        )
     }
 
     // At game end the final hand's breakdown shows first; the score sheet follows once dismissed.
@@ -324,6 +380,68 @@ private fun rememberDealGate(
     }
     return dealtHand
 }
+
+/** The online-game hooks GameScreen needs: incoming emotes to show, and a way to send one. */
+@Immutable
+class OnlineGameControls(
+    val incomingEmotes: SharedFlow<EmoteReceived>,
+    val onSendEmote: (Emote) -> Unit,
+)
+
+/** The online top-bar cluster: the turn clock while one is running, then the emote picker. */
+@Composable
+private fun OnlineBarControls(controls: OnlineGameControls, turnRemainingMillis: Long?) {
+    turnRemainingMillis?.let { remaining ->
+        val seconds = remaining / MILLIS_PER_SECOND
+        Text(
+            "${seconds / SECONDS_PER_MINUTE}:${(seconds % SECONDS_PER_MINUTE).toString().padStart(2, '0')}",
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.testTag("turnClock"),
+        )
+    }
+    OnlineEmoteButton(controls)
+}
+
+/** The emote picker in the top bar: a small button opening a dropdown of the canned phrases. */
+@Composable
+private fun OnlineEmoteButton(controls: OnlineGameControls) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(
+            onClick = { open = true },
+            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onBackground),
+            modifier = Modifier.testTag("emoteButton"),
+        ) { Text("Emote") }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            EMOTE_OPTIONS.forEach { (emote, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        controls.onSendEmote(emote)
+                        open = false
+                    },
+                    modifier = Modifier.testTag("emote:${emote.name}"),
+                )
+            }
+        }
+    }
+}
+
+private fun emoteLabel(emote: Emote): String =
+    EMOTE_OPTIONS.firstOrNull { it.first == emote }?.second ?: emote.name
+
+private val EMOTE_OPTIONS = listOf(
+    Emote.WELL_PLAYED to "Well played",
+    Emote.NICE_HAND to "Nice hand",
+    Emote.OOPS to "Oops",
+    Emote.THINKING to "Hmm",
+    Emote.HURRY_UP to "Hurry up",
+    Emote.GOOD_GAME to "Good game",
+)
+
+private const val EMOTE_TOAST_MILLIS = 2500L
+private const val MILLIS_PER_SECOND = 1000L
+private const val SECONDS_PER_MINUTE = 60L
 
 /** Before any hand has been animated. Below every real hand number, which start at zero. */
 private const val NO_HAND = -1

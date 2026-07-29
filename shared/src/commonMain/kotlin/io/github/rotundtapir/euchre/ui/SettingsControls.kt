@@ -29,4 +29,10 @@ data class SettingsControls(
     val onSetBotSkill: (BotSkill) -> Unit,
     val houseRules: EuchreHouseRules,
     val onSetHouseRules: (EuchreHouseRules) -> Unit,
+    // Online play: the server to connect to and the display name other players see. Both live here
+    // because the settings dialog edits them and the online screens read them.
+    val serverUrl: String,
+    val onSetServerUrl: (String) -> Unit,
+    val playerName: String,
+    val onSetPlayerName: (String) -> Unit,
 )

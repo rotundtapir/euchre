@@ -81,6 +81,9 @@ fun ScoreBar(
     onOpenSettings: () -> Unit,
     onMenu: () -> Unit,
     modifier: Modifier = Modifier,
+    // An online game hangs its own controls (the turn clock, the emote picker) off the bar rather
+    // than overlaying the felt, so they respect the insets and the ad slot.
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val myTeam = view.myTeam
     Row(
@@ -91,6 +94,7 @@ fun ScoreBar(
         TeamScore("Us", view, myTeam)
         TeamScore("Them", view, view.opponentTeam)
         Row(verticalAlignment = Alignment.CenterVertically) {
+            trailing?.invoke()
             OnBackgroundIconButton(
                 imageVector = SettingsIcon,
                 contentDescription = "Settings",
@@ -190,6 +194,9 @@ fun OpponentsRow(
     dealState: DealAnimationState,
     dealShown: Boolean,
     modifier: Modifier = Modifier,
+    // Non-null in an online game: records each seat's rect so an incoming emote's bubble can point
+    // at whoever sent it.
+    anchors: TutorialAnchors? = null,
 ) {
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
         for (offset in 1 until PLAYER_COUNT) {
@@ -200,6 +207,7 @@ fun OpponentsRow(
                 dealState = dealState,
                 dealShown = dealShown,
                 modifier = Modifier.weight(1f),
+                anchors = anchors,
             )
         }
     }
@@ -213,12 +221,16 @@ private fun OpponentStatus(
     dealState: DealAnimationState,
     dealShown: Boolean,
     modifier: Modifier = Modifier,
+    anchors: TutorialAnchors? = null,
 ) {
     // A seat is only "sitting out" once the hand's active set is known; before then everyone plays.
     val sittingOut = view.activeSeats.isNotEmpty() && seat !in view.activeSeats
     val isPartner = view.isMyTeam(seat)
     val nameColor = teamColor(view, seat)
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.tutorialTarget(anchors, seatAnchor(seat)),
+    ) {
         Text(
             seatLabel(view.seat, botNames, seat) + if (seat == view.dealer) " (D)" else "",
             color = nameColor,

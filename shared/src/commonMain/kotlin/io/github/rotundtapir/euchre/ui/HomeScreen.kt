@@ -49,6 +49,8 @@ fun HomeScreen(
     monetization: Monetization,
     settings: SettingsControls,
     onPlayWithBots: () -> Unit,
+    /** Enters online mode: play a real four-hander with friends over a lobby code. */
+    onPlayOnline: () -> Unit,
     /** Where "How to play" goes: the interactive tutorial's lesson picker. */
     onHowToPlay: () -> Unit,
     modifier: Modifier = Modifier,
@@ -80,6 +82,11 @@ fun HomeScreen(
                     colors = primaryButtonColors(),
                     modifier = Modifier.testTag("playWithBotsButton"),
                 ) { Text("Play with bots", fontWeight = FontWeight.Bold) }
+                Spacer(Modifier.height(16.dp))
+                OnBackgroundOutlinedButton(
+                    onClick = onPlayOnline,
+                    modifier = Modifier.testTag("playOnlineButton"),
+                ) { Text("Play with friends") }
                 Spacer(Modifier.height(16.dp))
                 OnBackgroundOutlinedButton(
                     onClick = onHowToPlay,

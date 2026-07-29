@@ -32,6 +32,12 @@ fun seatLabel(humanSeat: Seat, botNames: Map<Seat, String>, seat: Seat): String 
     if (seat == humanSeat) "You" else botNames[seat] ?: "Seat ${seat.index}"
 
 /**
+ * The anchor key a seat's on-screen rect is recorded under, so an overlay (an incoming emote's
+ * speech bubble) can point at the player it concerns.
+ */
+internal fun seatAnchor(seat: Seat): String = "seat:${seat.index}"
+
+/**
  * The colour a [seat]'s name is drawn in: your own side in amber, the opposing side in the first
  * of cardkit's felt-readable opponent hues. Euchre only ever has two teams, so the palette can
  * never run out.
