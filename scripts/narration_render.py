@@ -31,7 +31,9 @@ def main() -> int:
     print(f"Synthesizing {len(lines)} clips with {MODEL} (voice: {voice}) on "
           f"{torch.cuda.get_device_name(0)}…", flush=True)
 
-    # float16, not bfloat16: the render box is a 2080 Ti (Turing), which has no bf16.
+    # float16, not bfloat16: the render box is a 2080 Ti (Turing), which has no *native* bf16.
+    # Don't be talked out of this by torch.cuda.is_bf16_supported() returning True here — recent
+    # torch counts emulation, which on this card is slower than fp16 for no quality gain.
     model = Qwen3TTSModel.from_pretrained(MODEL, device_map="cuda:0", dtype=torch.float16)
 
     os.makedirs(out_dir, exist_ok=True)

@@ -16,12 +16,17 @@
 # lives), rendered THERE, and the clips come back. The render box needs only Python, torch and
 # ffmpeg.
 #
-# One-time setup on the render box — note the explicit interpreter: a distro's default `python3`
-# may be newer than PyTorch ships wheels for (Fedora 43 is on 3.14, which has none), and the venv
-# silently becomes unusable if you let it inherit that.
-#   python3.10 -m venv ~/.venvs/qwen-tts
+# One-time setup on the render box:
+#   python3 -m venv ~/.venvs/qwen-tts
 #   ~/.venvs/qwen-tts/bin/pip install -U qwen-tts soundfile
 #   ffmpeg on PATH
+#
+# Build the venv on a Python whose development headers are installed (`python3-devel` /
+# `python3-dev`). torch routes some ops through Triton, which JIT-compiles a small CUDA shim against
+# Python.h on first use — so a headerless interpreter fails at the first synthesis, deep in a torch
+# traceback, long after the install looked fine. If you are tempted to reach for an older Python to
+# get wheels, check first that the newer one actually lacks them; being wrong about that is how this
+# comment came to be written.
 #
 # Re-rolling: generation samples, so a take can occasionally come out mangled with nothing wrong in
 # the text. Pass clip ids to regenerate just those lines with a fresh roll:
@@ -83,8 +88,11 @@ trap "ssh -o BatchMode=yes '$GPU_HOST' 'rm -rf $REMOTE_DIR' >/dev/null 2>&1 || t
 rsync -q "$SEND" "$GPU_HOST:$REMOTE_DIR/texts.jsonl"
 rsync -q scripts/narration_render.py "$GPU_HOST:$REMOTE_DIR/render.py"
 
+# Run from the work dir, not the login dir: a stray ~/foo.py that shadows a stdlib module the
+# transformers import chain pulls in (email, json, …) breaks the render with a traceback that looks
+# like a broken install. Cheap insurance on a box that isn't ours to keep tidy.
 ssh -o BatchMode=yes "$GPU_HOST" \
-  "VOICE=$(printf %q "$VOICE") INSTRUCT=$(printf %q "$INSTRUCT") \
+  "cd $REMOTE_DIR && VOICE=$(printf %q "$VOICE") INSTRUCT=$(printf %q "$INSTRUCT") \
    $REMOTE_PYTHON $REMOTE_DIR/render.py $REMOTE_DIR/texts.jsonl $REMOTE_DIR/out"
 
 mkdir -p "$OUT"
