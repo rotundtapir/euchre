@@ -29,14 +29,24 @@ the failure would look like "the link did nothing".
 ## assetlinks.json
 
 It lives in the [Pages root repo](https://github.com/rotundtapir/rotundtapir.github.io) under
-`.well-known/`, shared with 500. Euchre's entry lists:
+`.well-known/`, shared with 500. Euchre's entry lists exactly one certificate: the **FOSS release**
+key. Read it from a signed APK rather than a keystore, so what you publish is provably what users
+install:
 
-- the **FOSS release** certificate — take it from a signed APK rather than a keystore, so it is what
-  actually shipped:
-  ```bash
-  apksigner verify --print-certs app-foss-release.apk
-  ```
-- the **debug keystore**, so App Links verify on debug builds during development.
+```bash
+apksigner verify --print-certs app-foss-release.apk
+```
+
+**Debug builds are deliberately not listed**, so App Links do not verify on them: tapping an invite
+opens the web client instead, which joins the game perfectly well. The debug keystore has a published
+default password and no handling discipline, so listing it would let anyone who obtained that file
+build an app Android verifies as an owner of these links — a real widening of trust for the
+convenience of tapping a link on a sideloaded build. Nothing automated depends on it: `DeepLinkTest`
+launches an explicit-component intent, which bypasses verification entirely.
+
+(500's entry does still list its debug key. That is a deliberate, temporary trade while both apps are
+pre-1.0 — tracked in [500#38](https://github.com/rotundtapir/500/issues/38) — not a convention to
+copy here.)
 
 If euchre ever ships on Google Play, Play re-signs the app with its own key, and **that** fingerprint
 must be added too or verification will fail for every Play install. Take it from the Play Console
