@@ -40,17 +40,14 @@ It lives in the [Pages root repo](https://github.com/rotundtapir/rotundtapir.git
 
 **The debug entry is a deliberate, temporary trade, and it comes out at v1.0.0** — tracked in
 [euchre#1](https://github.com/rotundtapir/euchre/issues/1), mirroring
-[500#38](https://github.com/rotundtapir/500/issues/38). Worth understanding rather than copying: the
-debug keystore is world-readable (mode `0664`), opens with the published constant password
-`android`, and its certificate runs to 2056, so anyone who obtains that file can build an app Android
-*verifies* as an owner of these links. Narrow — they still need it onto a device — but it is a real
-widening of trust, bought for the convenience of tapping a real invite on a test build while the app
-is still pre-1.0.
+[500#38](https://github.com/rotundtapir/500/issues/38). A debug signing key is a development
+convenience and does not carry the protections a release key does, so it earns its place in a
+production trust list only while tapping a real invite on a test build is still part of the loop.
 
 Nothing automated depends on it: `DeepLinkTest` launches an explicit-component intent, which bypasses
-verification entirely, and CI runners generate their own debug keystore. When it is removed, the
-degraded behaviour is that an invite tapped on a debug build opens the web client, which joins the
-game normally.
+verification entirely, and CI runners generate their own debug key. When it is removed, the degraded
+behaviour is that an invite tapped on a debug build opens the web client, which joins the game
+normally.
 
 If euchre ever ships on Google Play, Play re-signs the app with its own key, and **that** fingerprint
 must be added too or verification will fail for every Play install. Take it from the Play Console
