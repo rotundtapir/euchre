@@ -12,11 +12,12 @@ library — a sibling of the [500](https://github.com/rotundtapir/500) app.
   following suit), bidding, going alone, and defense.
 - **House rules** — stick the dealer, defend alone, Benny (joker as best bower), and farmer's
   hand, each toggleable in settings.
+- **Online multiplayer** — invite-code lobbies with cross-play between Android and the browser,
+  bots filling any empty seat, and a bot covering for anyone who drops until they reconnect. Games
+  survive a server restart. Play on the project's server or
+  [run your own](docs/self-hosting.md) — the server is in this repository and is free software too.
 - **Web build** — the same game in any modern browser (Kotlin/Wasm) at
   <https://rotundtapir.github.io/euchre/>.
-
-Online multiplayer (cross-play with the browser, shared server with 500) is planned — see
-[ROADMAP.md](ROADMAP.md).
 
 ## Flavors
 

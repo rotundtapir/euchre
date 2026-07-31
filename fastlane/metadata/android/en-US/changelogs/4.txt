@@ -1,0 +1,9 @@
+Online multiplayer is here.
+
+• Play with friends: share a 4-character code. Android and browser play together.
+• Bots fill empty seats, and cover anyone who drops until they rejoin.
+• A lost connection — or even a server restart — doesn't cost you the game.
+• House rules work online too.
+
+Offline play still makes no network connections, and online needs no account. You can run your own
+server if you'd rather; it's open source like the rest.

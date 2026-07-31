@@ -2,9 +2,10 @@ Play the classic trick-taking card game Euchre — 4-player partnerships, first 
 
 Features:
 • Play offline against bots — a quick deterministic opponent, or the opt-in Advanced AI (Monte-Carlo search) for a real challenge.
+• Play online with friends — share a 4-character invite code, on Android or in a browser. Empty seats are filled by bots, a bot covers anyone who drops until they come back, and a dropped connection or even a server restart doesn't cost you the game.
 • Learn with the interactive tutorial: four guided lessons covering the basics (trump, bowers, following suit), bidding, going alone, and defense.
 • House rules, each toggleable: stick the dealer, defend alone, Benny (joker as best bower), and farmer's hand.
 • Clean, fast table with smooth dealing animations and card sounds.
-• No account, no sign-in. Works fully offline.
+• No account, no sign-in, no ads in the F-Droid build. Offline play makes no network connections at all; online play connects only to the game server you choose — and you can run your own.
 
 Free and open source (GPLv3): https://github.com/rotundtapir/euchre

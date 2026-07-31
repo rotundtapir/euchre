@@ -12,12 +12,15 @@ a composite build. Only Euchre-specific code lives in this repo; game-agnostic i
 in `cardkit`. The web build deploys to GitHub Pages (https://rotundtapir.github.io/euchre/) on `v*`
 release tags.
 
-v0.1.0 is offline-only: play against bots (heuristic + opt-in Monte-Carlo "Advanced AI") plus a
-four-lesson interactive tutorial. Online multiplayer is planned to run on the **same server as
-500** with hot-pluggable game engines — no networking exists here yet, but the engine must stay a
-pure, seed-deterministic, fully `@Serializable` reducer with stable `@SerialName`s and a redacting
-`view()` so that path stays open. Tutorial narration audio is also planned; tutorial text keys are
-narration-ready (stable per-lesson ids) so clips can drop in without rework.
+Play against bots (heuristic + opt-in Monte-Carlo "Advanced AI"), a four-lesson interactive
+tutorial, and — since 0.2.0 — **online multiplayer**: invite-code lobbies, cross-play between
+Android and the browser, bot fill and substitution, and games that survive a server restart. The
+online stack is shared with 500 through `cardkit-net` (wire protocol + client) and `cardkit-server`
+(rooms, seats, reconnect, snapshots); only euchre's own payloads and a `GameDescriptor` live here,
+in `:net` and `:server`. The engine must stay a pure, seed-deterministic, fully `@Serializable`
+reducer with stable `@SerialName`s and a redacting `view()` — that is what the server runs on.
+Tutorial narration audio is still planned; tutorial text keys are narration-ready (stable
+per-lesson ids) so clips can drop in without rework.
 
 ## Toolchain (read first — non-obvious and will waste time otherwise)
 

@@ -1,1 +1,1 @@
-Classic Euchre against bots: bowers, going alone, and an interactive tutorial.
+Classic Euchre: play bots offline or friends online, with a built-in tutorial.

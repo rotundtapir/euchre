@@ -16,14 +16,19 @@ Direction, not commitment — items land when they're ready. Feedback and votes:
   going alone, defense. Narration-ready text keys; no audio yet.
 - **Android (foss + play flavors) and web (Kotlin/Wasm on GitHub Pages) from day one.**
 
+## v0.2.0 (in progress)
+
+- **Online multiplayer.** Invite-code lobbies, cross-play Android ↔ web, bots filling empty seats
+  and covering for anyone who drops, seat reclaim by session token, and games that survive a server
+  restart. Runs alongside 500 on one small VPS, routed by hostname.
+- **Shared online stack.** The game-agnostic half lives in cardkit (`cardkit-net`, `cardkit-server`);
+  this repo holds only euchre's payload types, its `GameDescriptor`, and a thin server binary. The
+  server is free software and [self-hostable](docs/self-hosting.md).
+
 ## Later
 
 - **Tutorial narration audio** — prerecorded clips over the existing text keys (the pipeline and
   player plumbing exist in cardkit-ui; 500 already ships narration).
-- **Online multiplayer** — on the **same server as 500**, with game engines as hot-pluggable
-  modules (the deferred `cardkit-server`/`cardkit-net-client` extraction). Invite-code lobbies,
-  bot fill-in, cross-play Android ↔ web, self-hostable. The engine is already a pure serializable
-  reducer with stable wire names, so this is a transport project, not an engine rewrite.
 - **F-Droid submission** and **Google Play production release**.
 - 3-handed (cutthroat) and 2-handed variants.
 - Statistics / match history.
