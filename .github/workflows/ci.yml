@@ -392,6 +392,26 @@ jobs:
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      # The box has to be prepared once before euchre can deploy at all: the shared Caddy must be
+      # importing /opt/caddy-sites and joined to the `edge` network (see 500's docs/server-runbook.md).
+      # Check it up front, so a first deploy onto an unprepared box says so instead of failing on a
+      # bare rsync error three steps later.
+      - name: Preflight — the shared Caddy is ready for a second game
+        run: |
+          ssh -p "${{ secrets.DEPLOY_PORT }}" -i ~/.ssh/id_ed25519 root@"${{ secrets.DEPLOY_HOST }}" bash -s <<'EOF'
+          set -e
+          missing=""
+          [ -d /opt/caddy-sites ] || missing="$missing /opt/caddy-sites"
+          docker network inspect edge >/dev/null 2>&1 || missing="$missing edge-network"
+          docker inspect 500-caddy >/dev/null 2>&1 || missing="$missing 500-caddy-container"
+          if [ -n "$missing" ]; then
+            echo "::error::the box is not prepared for a second game — missing:$missing."
+            echo "Run the one-time migration in 500's docs/server-runbook.md ('Hosting a second game"
+            echo "on this box') and re-run this job. Nothing has been changed."
+            exit 1
+          fi
+          EOF
+
       - name: Sync deploy files
         run: |
           rsync -e "ssh -p ${{ secrets.DEPLOY_PORT }} -i ~/.ssh/id_ed25519" -av \
