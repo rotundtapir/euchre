@@ -8,9 +8,9 @@ import io.github.rotundtapir.euchre.EuchreHouseRules
 
 /**
  * The settings dialog's plumbing, bundled: each setting's current value plus its write-through
- * callback. Built once in `EuchreApp` and passed as a unit to [HomeScreen], [BotSetupScreen],
- * [GameScreen] and [SettingsDialog], so adding a setting touches one construction site instead of
- * a parameter list per screen.
+ * callback. Built once in `EuchreApp` and passed as a unit to [HomeScreen], [GameScreen] and
+ * [SettingsDialog], so adding a setting touches one construction site instead of a parameter list
+ * per screen.
  *
  * The four house rules travel as one [EuchreHouseRules] value (exactly what `newGame` takes) with a
  * single write-through callback, so a new toggle costs one field on that value, not two here.

@@ -137,15 +137,12 @@ class TutorialFrameCapture {
         small.recycle()
     }
 
-    /** Films from the tap on "Play" to the first frames of a bot game's deal. */
+    /** Films from the tap on "Play with bots" to the first frames of the deal. */
     @Test
     fun filmStartingABotGame() {
         val outDir = framesDir("frames-newgame")
-        rule.onNodeWithTag("playWithBotsButton").performClick()
-        rule.waitUntil(TIMEOUT_MS) { tagPresent("startBotGame") }
-
         rule.mainClock.autoAdvance = false
-        rule.onNodeWithTag("startBotGame").performClick()
+        rule.onNodeWithTag("playWithBotsButton").performClick()
         filmFrames(outDir, NEW_GAME_FRAMES)
     }
 

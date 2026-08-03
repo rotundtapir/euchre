@@ -17,14 +17,7 @@ for (const vp of VIEWPORTS) {
     await page.goto(FIXTURE);
     await awaitAppBoot(page);
     await clickByRole(page, 'button', 'Play with bots');
-    // Deliberately NO scrolling here. The setup screen used to need a wheel gesture at this height
-    // to reach Play, with nothing on screen suggesting one was possible; it now lays its options in
-    // two columns and fits. Clicking straight through is what pins that — reintroduce a scroll and
-    // this test would pass against the bug again.
-    for (const label of ['Advanced AI', 'Stick the dealer', 'Defend alone', 'Benny (joker)', "Farmer's hand"]) {
-      await expect(page.getByText(label, { exact: true })).toBeVisible();
-    }
-    await clickByRole(page, 'button', /^Play$/);
+    // "Play with bots" deals directly: house rules and bot strength live in settings alone.
 
     // Reaching the round-1 prompt proves the table laid out at this size.
     const prompt = page.getByRole('button', { name: 'Pick it up' });
