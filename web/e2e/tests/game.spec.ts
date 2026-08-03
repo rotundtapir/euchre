@@ -13,9 +13,8 @@ test('seeded game: suit glyphs render, bidding works, a trick completes', async 
   await page.goto(FIXTURE);
   await awaitAppBoot(page);
 
-  // Play with bots -> the house-rule setup screen -> Play.
+  // Play with bots deals directly: the house rules live in settings, not a setup screen.
   await clickByRole(page, 'button', 'Play with bots');
-  await clickByRole(page, 'button', /^Play$/);
 
   // The suit symbols come through the accessibility tree, which catches the missing-glyph (tofu)
   // regression without a pixel diff.
@@ -51,7 +50,6 @@ test('the dealer can pick the up-card up and bury one', async ({ page }) => {
   await awaitAppBoot(page);
 
   await clickByRole(page, 'button', 'Play with bots');
-  await clickByRole(page, 'button', /^Play$/);
   await expect(page.getByRole('button', { name: 'Pick it up' })).toBeVisible({ timeout: 30_000 });
   await clickByRole(page, 'button', 'Pick it up');
 

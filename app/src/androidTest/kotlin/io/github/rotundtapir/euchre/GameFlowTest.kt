@@ -39,13 +39,12 @@ class GameFlowTest : EuchreUiTest() {
     }
 
     @Test
-    fun botSetup_offersHouseRules_andBackReturnsHome() {
+    fun playWithBots_dealsDirectly_withNoSetupScreenBetween() {
+        // The house rules and bot strength live in settings alone (like 500); "Play with bots"
+        // goes straight to the deal.
         rule.onNodeWithText("Play with bots").performClick()
-        rule.onNodeWithTag("setup:stickTheDealer").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("setup:farmersHand").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("setupAdvancedAi").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("botSetupBack").performScrollTo().performClick()
-        rule.onNodeWithText("Play with bots").assertIsDisplayed()
+        waitForRound1Bid()
+        assertEquals(HAND_CARDS, cardsInHand())
     }
 
     @Test

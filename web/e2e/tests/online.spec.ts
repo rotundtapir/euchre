@@ -43,8 +43,8 @@ test('the lobby carries the house rules the host chose', async ({ page }) => {
   await clickByRole(page, 'button', 'Play with friends');
   await clickByRole(page, 'button', 'Create a game');
 
-  // The create screen renders the same four house-rule switches as local setup, so the choice a
-  // player already understands is the choice they make for a table. Matched by their labels: Compose
+  // The create screen renders the same four house-rule switches the settings dialog has, so the
+  // choice a player already understands is the choice they make for a table. Matched by labels: Compose
   // testTags are not exposed to the wasm accessibility mirror (they exist for the Android suite), so
   // every locator here goes through a role or visible text, as the other specs do.
   for (const rule of ['Stick the dealer', 'Defend alone', 'Benny (joker)', "Farmer's hand"]) {

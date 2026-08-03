@@ -26,7 +26,6 @@ import io.github.rotundtapir.cardkit.ui.tutorial.TutorialPagesDialog
 import io.github.rotundtapir.euchre.online.JoinLink
 import io.github.rotundtapir.euchre.online.OnlineViewModel
 import io.github.rotundtapir.euchre.online.SessionTokenStore
-import io.github.rotundtapir.euchre.ui.BotSetupScreen
 import io.github.rotundtapir.euchre.ui.GameScreen
 import io.github.rotundtapir.euchre.ui.HOUSE_RULE_ROWS
 import io.github.rotundtapir.euchre.ui.HomeScreen
@@ -41,7 +40,7 @@ import io.github.rotundtapir.euchre.ui.tutorial.tutorialLessons
 import kotlinx.coroutines.launch
 
 /** Top-level screens the app switches between. */
-enum class AppScreen { HOME, BOT_SETUP, GAME, ONLINE }
+enum class AppScreen { HOME, GAME, ONLINE }
 
 /**
  * The whole game UI, shared by every entry point (the Android activity, the browser). Each entry
@@ -203,9 +202,12 @@ fun EuchreApp(
                     }
                 },
             )
-            appScreen == AppScreen.BOT_SETUP.name -> BotSetupScreen(
+            else -> HomeScreen(
+                monetization = monetization,
                 settings = settingsControls,
-                onStart = {
+                // Straight into the deal, like 500: the opponents and house rules are the
+                // persisted settings, edited under the cog rather than re-asked before every game.
+                onPlayWithBots = {
                     vm.newGame(
                         seed = nextSeed(),
                         houseRules = settingsControls.houseRules,
@@ -214,12 +216,6 @@ fun EuchreApp(
                     )
                     appScreen = AppScreen.GAME.name
                 },
-                onBack = { appScreen = AppScreen.HOME.name },
-            )
-            else -> HomeScreen(
-                monetization = monetization,
-                settings = settingsControls,
-                onPlayWithBots = { appScreen = AppScreen.BOT_SETUP.name },
                 onPlayOnline = {
                     onlineVm.enter(
                         settingsControls.serverUrl, appConfig.version, appConfig.platform.toNet(),
