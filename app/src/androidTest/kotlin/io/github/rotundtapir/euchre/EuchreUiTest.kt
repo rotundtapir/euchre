@@ -99,10 +99,9 @@ abstract class EuchreUiTest {
 
     // --- Flow helpers ----------------------------------------------------------------------------
 
-    /** Home → bot setup → deal. */
+    /** Home → deal: "Play with bots" starts the game with the persisted settings directly. */
     protected fun startGame() {
         rule.onNodeWithText("Play with bots").performClick()
-        rule.onNodeWithTag("startBotGame").performScrollTo().performClick()
     }
 
     protected fun round1BidShowing(): Boolean = nodesWithTag("bid:orderUp").isNotEmpty()

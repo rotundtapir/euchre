@@ -115,8 +115,8 @@ internal fun OnlineEntryScreen(
 /**
  * Configure and create a lobby: agree the house rules, then create. There is no table shape to
  * choose — Euchre is always four seats in two partnerships — so the four house-rule switches are the
- * whole of a lobby's configuration, rendered from the same [HOUSE_RULE_ROWS] table as the local
- * setup screen so both read identically. [initialRules] is the player's own saved preference, which
+ * whole of a lobby's configuration, rendered from the same [HOUSE_RULE_ROWS] table as the settings
+ * dialog so both read identically. [initialRules] is the player's own saved preference, which
  * makes their usual game the one-tap default; a lobby's rules are never written back to settings.
  *
  * The timeout controls live in a collapsed "Advanced" section — the generous defaults suit a

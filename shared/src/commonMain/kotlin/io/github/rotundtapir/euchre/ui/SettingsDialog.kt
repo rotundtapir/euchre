@@ -182,7 +182,7 @@ private fun HouseRuleSection(settings: SettingsControls, inGame: Boolean) {
 /**
  * One house-rule switch: its label, its test tag, how it reads and writes the rule set, and how it
  * is persisted. All four arms together, so a new house rule is one entry here rather than an edit
- * in the dialog, the setup screen and the write-through path.
+ * in the dialog, the create-lobby screen and the write-through path.
  */
 internal class HouseRuleRow(
     val label: String,
@@ -193,8 +193,8 @@ internal class HouseRuleRow(
 )
 
 /**
- * The four engine toggles as data, so the settings dialog and the pre-game setup screen render the
- * same switches (with their own tag prefixes) from one list instead of two hand-kept copies.
+ * The four engine toggles as data, so the settings dialog and the online create-lobby screen render
+ * the same switches (with their own tag prefixes) from one list instead of two hand-kept copies.
  */
 internal val HOUSE_RULE_ROWS = listOf(
     HouseRuleRow(

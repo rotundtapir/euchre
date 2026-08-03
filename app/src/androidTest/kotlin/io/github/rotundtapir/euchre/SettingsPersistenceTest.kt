@@ -57,16 +57,19 @@ class SettingsPersistenceTest : EuchreUiTest() {
     }
 
     @Test
-    fun theSetupScreenAndTheCogEditTheSameSetting() {
-        // The pre-game setup screen surfaces the same persisted house rules as the settings cog, so
-        // a change made in one must be visible in the other.
-        rule.onNodeWithText("Play with bots").performClick()
-        val before = switchIsOn("setup:stickTheDealer") == true
-        rule.onNodeWithTag("setup:stickTheDealer").performScrollTo().performClick()
-        rule.waitUntil(STEP_TIMEOUT_MS) { switchIsOn("setup:stickTheDealer") == !before }
-
-        rule.onNodeWithTag("botSetupBack").performScrollTo().performClick()
+    fun aRuleFlippedInSettings_governsTheNextGame() {
+        // Settings is the one home of the house rules now: a rule flipped under the cog must be
+        // what "Play with bots" deals under, with no setup screen in between to re-ask.
         rule.onNodeWithTag("settingsButton").performClick()
+        val before = switchIsOn("stickTheDealer") == true
+        rule.onNodeWithTag("stickTheDealer").performScrollTo().performClick()
+        rule.waitUntil(STEP_TIMEOUT_MS) { switchIsOn("stickTheDealer") == !before }
+        rule.onNodeWithText("Done").performClick()
+
+        startGame()
+        waitForRound1Bid()
+        // The in-game dialog shows the same (disabled) switch holding the flipped value.
+        rule.onNodeWithTag("gameSettingsButton").performClick()
         rule.waitUntil(STEP_TIMEOUT_MS) { switchIsOn("stickTheDealer") == !before }
         rule.onNodeWithText("Done").performClick()
     }
