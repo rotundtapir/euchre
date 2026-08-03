@@ -23,6 +23,10 @@ test('seeded game: suit glyphs render, bidding works, a trick completes', async 
   // The human deals the first hand, so ordering up would mean taking the card into hand.
   await expect(page.getByRole('button', { name: 'Pick it up' })).toBeVisible();
   await expect(page.getByText('Us: 0/10')).toBeVisible();
+  // No narration toggle in a regular game: narration is tutorial-only and its audio hasn't
+  // shipped, so a "♪ on/off" control here would be a dead switch (the toggle's label is the one
+  // ♪ the accessibility mirror could carry — the suit glyphs above are ♦♠♥♣, never ♪).
+  await expect(page.getByText(/♪/)).toHaveCount(0);
 
   await clickByRole(page, 'button', 'Pass');
 

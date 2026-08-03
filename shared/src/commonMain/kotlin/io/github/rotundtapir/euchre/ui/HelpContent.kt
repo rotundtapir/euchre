@@ -10,6 +10,11 @@ import io.github.rotundtapir.euchre.EuchreHouseRules
  * The rules of Euchre *as this app implements them*, on cardkit's paged card-face reader. The house
  * rules section reflects [houseRules] so the text never describes a variant the current settings
  * have switched off.
+ *
+ * Deliberately no `narration` here, ever (same as 500's RulesDialog): the shared reader renders a
+ * "♪" mute toggle for any NarrationState it is handed, and this dialog is reachable from a regular
+ * game's settings cog — narration is a tutorial feature, and its toggle must never surface where
+ * there is no voice behind it. GameFlowTest pins this.
  */
 @Composable
 fun RulesDialog(houseRules: EuchreHouseRules, onDismiss: () -> Unit) {
