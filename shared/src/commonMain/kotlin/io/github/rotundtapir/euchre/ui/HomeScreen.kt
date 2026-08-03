@@ -9,22 +9,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,9 +37,6 @@ import io.github.rotundtapir.cardkit.ui.SettingsIcon
 import io.github.rotundtapir.cardkit.ui.felt.OnBackgroundIconButton
 import io.github.rotundtapir.cardkit.ui.felt.OnBackgroundOutlinedButton
 import io.github.rotundtapir.cardkit.ui.felt.cardSurfaceButtonColors
-import io.github.rotundtapir.cardkit.ui.settings.BotSkill
-import io.github.rotundtapir.cardkit.ui.settings.SectionHeader
-import io.github.rotundtapir.cardkit.ui.settings.SwitchRow
 
 /** The title screen: play, learn, or open settings. */
 @Composable
@@ -115,121 +106,6 @@ fun HomeScreen(
     }
 }
 
-/**
- * The setup screen reached from "Play with bots": choose the opponents' strength and the house
- * rules this game runs under, then deal. These are the same persisted settings the cog edits —
- * surfaced here because they are exactly the choices that only apply to a game about to start.
- */
-@Composable
-fun BotSetupScreen(
-    settings: SettingsControls,
-    onStart: () -> Unit,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val rules = settings.houseRules
-    Surface(
-        modifier = modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-    ) {
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            // Two columns when the screen is short and wide (a landscape phone, a small browser
-            // window). Stacked, the five options are taller than the viewport, and a canvas app
-            // draws no scrollbar — so the overflow is silent: the list simply appears to end. There
-            // is ample width at those sizes, and spending it makes scrolling unnecessary rather
-            // than merely possible.
-            val twoColumns = maxWidth > maxHeight && maxHeight < SETUP_SHORT_HEIGHT
-        Column(
-            modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            // Only the options scroll; Play and Back are pinned below. On a short screen (a
-            // landscape phone, a small browser window) the option list is taller than the viewport,
-            // and a canvas app draws no scrollbar — so a scrolling Play button is not merely below
-            // the fold, it is below the fold with nothing on screen suggesting it exists.
-            Column(
-                modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                // Top, not Center: centred inside a scroll viewport, an over-long list renders with
-                // empty space beneath it, which reads as "that is all the options" while three are
-                // still hidden below. Top-aligned, the list runs to the bottom edge and the clipped
-                // row is itself the cue that it continues.
-            ) {
-            // The title is the first thing to go when height is scarce: this screen is reached by
-            // tapping "Play with bots" and has a Back button, so it is the most redundant 57dp on
-            // it — and buying two option rows with it is what lets the whole list fit.
-            if (!twoColumns) {
-                Text("Play with bots", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(24.dp))
-            }
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().widthIn(max = if (twoColumns) 900.dp else 420.dp),
-            ) {
-                SectionHeader("Opponents")
-                SwitchRow(
-                    label = "Advanced AI",
-                    checked = settings.botSkill == BotSkill.ADVANCED,
-                    onCheckedChange = { on ->
-                        settings.onSetBotSkill(if (on) BotSkill.ADVANCED else BotSkill.STANDARD)
-                    },
-                    switchModifier = Modifier.testTag("setupAdvancedAi"),
-                )
-                SectionHeader("House rules")
-                // The same four switches the settings dialog shows, from one definition — but
-                // enabled here, since this screen precedes the game they apply to.
-                if (twoColumns) {
-                    val split = (HOUSE_RULE_ROWS.size + 1) / 2
-                    Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                        for (column in listOf(HOUSE_RULE_ROWS.take(split), HOUSE_RULE_ROWS.drop(split))) {
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.weight(1f),
-                            ) {
-                                for (row in column) {
-                                    SwitchRow(
-                                        label = row.label,
-                                        checked = row.read(rules),
-                                        onCheckedChange = { settings.onSetHouseRules(row.write(rules, it)) },
-                                        switchModifier = Modifier.testTag("setup:${row.tag}"),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    for (row in HOUSE_RULE_ROWS) {
-                        SwitchRow(
-                            label = row.label,
-                            checked = row.read(rules),
-                            onCheckedChange = { settings.onSetHouseRules(row.write(rules, it)) },
-                            switchModifier = Modifier.testTag("setup:${row.tag}"),
-                        )
-                    }
-                }
-            }
-            }
-            Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = onStart,
-                colors = primaryButtonColors(),
-                modifier = Modifier.testTag("startBotGame"),
-            ) { Text("Play", fontWeight = FontWeight.Bold) }
-            Spacer(Modifier.height(8.dp))
-            TextButton(
-                onClick = onBack,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onBackground),
-                modifier = Modifier.testTag("botSetupBack"),
-            ) { Text("Back") }
-        }
-        }
-    }
-}
-
 /** The filled call-to-action styling: cardkit's card-white pill with its fixed dark-green ink. */
 @Composable
 private fun primaryButtonColors() = cardSurfaceButtonColors()
-
-/** Below this height the bot-setup screen lays its options out in two columns; see BotSetupScreen. */
-private val SETUP_SHORT_HEIGHT = 600.dp

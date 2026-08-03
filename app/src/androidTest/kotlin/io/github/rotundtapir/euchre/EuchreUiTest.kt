@@ -99,15 +99,9 @@ abstract class EuchreUiTest {
 
     // --- Flow helpers ----------------------------------------------------------------------------
 
-    /**
-     * Home → bot setup → deal.
-     *
-     * No performScrollTo on the start button: it sits outside the setup screen's scrolling region
-     * now, so it is always on screen — and performScrollTo throws without a scrollable ancestor.
-     */
+    /** Home → deal: "Play with bots" starts the game with the persisted settings directly. */
     protected fun startGame() {
         rule.onNodeWithText("Play with bots").performClick()
-        rule.onNodeWithTag("startBotGame").performClick()
     }
 
     protected fun round1BidShowing(): Boolean = nodesWithTag("bid:orderUp").isNotEmpty()
