@@ -145,11 +145,14 @@ class EuchreViewModel : ViewModel() {
         return when (skill) {
             BotSkill.STANDARD -> StrategyPlayer(heuristic, Random(seed + i))
             BotSkill.ADVANCED -> {
+                // Like 500's advancedConfig: an override scales every budget but keeps the
+                // production ratio, so a shrunk test budget still exercises the same
+                // bid-thinks-longest shape the defaults have.
                 val budget = aiBudgetMillis?.milliseconds
                 val config = if (budget == null) {
                     EuchreSearchConfig()
                 } else {
-                    EuchreSearchConfig(bidBudget = budget, discardBudget = budget, playBudget = budget)
+                    EuchreSearchConfig(bidBudget = budget * 2, discardBudget = budget, playBudget = budget)
                 }
                 EuchreAdvancedBotPlayer(
                     EuchreAdvancedBot(gameRules, config, heuristic),

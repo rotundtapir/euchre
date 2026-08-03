@@ -3,6 +3,7 @@ package io.github.rotundtapir.euchre.ai
 
 import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.euchre.engine.EUCHRE_SEATS
+import io.github.rotundtapir.euchre.engine.EuchreAction
 import io.github.rotundtapir.euchre.engine.EuchrePhase
 import io.github.rotundtapir.euchre.engine.EuchreRules
 import io.github.rotundtapir.euchre.engine.EuchreState
@@ -12,6 +13,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 import kotlinx.coroutines.test.runTest
 
 class EuchreAdvancedBotTest {
@@ -88,6 +93,75 @@ class EuchreAdvancedBotTest {
         val actor = rules.currentActor(state)!!
         val view = rules.view(state, actor)
         assertTrue(bot.decide(view, Random(3)) in view.legalActions)
+    }
+
+    @Test
+    fun `wall-clock budget bounds a decision`() = runTest {
+        val rules = EuchreRules()
+        val config = EuchreSearchConfig(
+            bidBudget = 200.milliseconds,
+            maxDeterminizations = Int.MAX_VALUE,
+            minDeterminizations = 1, // floor satisfied immediately: the clock is in charge...
+            batchSize = Int.MAX_VALUE, // ...and racing never fires (worlds % batch is never 0)
+        )
+        val bot = EuchreAdvancedBot(rules, config)
+        val state = rules.newGame(5)
+        val opener = rules.currentActor(state)!!
+        val view = rules.view(state, opener)
+        val start = TimeSource.Monotonic.markNow()
+        val action = bot.decide(view, Random(1))
+        val elapsed = start.elapsedNow()
+        assertTrue(action in view.legalActions)
+        // Generous CI margin; catches a runaway search that ignores its deadline.
+        assertTrue(elapsed < 2.seconds, "bidding took $elapsed against a 200ms budget")
+    }
+
+    @Test
+    fun `bidding samples the floor even when the budget has already expired`() = runTest {
+        val rules = EuchreRules()
+        val state = rules.newGame(5)
+        val opener = rules.currentActor(state)!!
+        val view = rules.view(state, opener)
+
+        // A zero budget with a 16-world floor must behave exactly like a fixed 16-world search:
+        // same worlds, same racing points, same Random stream => the identical action.
+        val floored = EuchreSearchConfig(
+            bidBudget = Duration.ZERO,
+            maxDeterminizations = Int.MAX_VALUE,
+            minDeterminizations = 16,
+        )
+        val fixed = floored.copy(maxDeterminizations = 16, timeBudgetEnabled = false)
+        val flooredAction = EuchreAdvancedBot(rules, floored).decide(view, Random(3))
+        val fixedAction = EuchreAdvancedBot(rules, fixed).decide(view, Random(3))
+        assertEquals(fixedAction, flooredAction)
+    }
+
+    @Test
+    fun `a forced play returns without sampling`() = runTest {
+        // Drive a real hand with the heuristic until a seat must follow suit with a single card.
+        // Sampling is uncapped and the wall clock disabled, so only the single-arm early exit can
+        // answer that view — anything else would grind through Int.MAX_VALUE worlds.
+        val rules = EuchreRules()
+        val heuristic = EuchreBot()
+        var state = rules.newGame(11)
+        var steps = 0
+        while (!rules.isTerminal(state)) {
+            check(steps++ < 20_000) { "no forced play found" }
+            val actor = rules.currentActor(state)!!
+            val view = rules.view(state, actor)
+            val plays = view.legalActions.filterIsInstance<EuchreAction.PlayCard>()
+            if (view.phase == EuchrePhase.PLAY && view.legalActions.size == 1 && plays.size == 1) {
+                val uncapped = EuchreSearchConfig(
+                    maxDeterminizations = Int.MAX_VALUE,
+                    timeBudgetEnabled = false,
+                )
+                val action = EuchreAdvancedBot(rules, uncapped).decide(view, Random(1))
+                assertEquals(plays.single(), action)
+                return@runTest
+            }
+            state = rules.apply(state, actor, heuristic.decide(view, Random(steps.toLong())))
+        }
+        error("match ended without a forced play; pick another seed")
     }
 
     @Test
