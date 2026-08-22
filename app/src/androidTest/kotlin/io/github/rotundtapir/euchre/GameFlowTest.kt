@@ -268,6 +268,34 @@ class GameFlowTest : EuchreUiTest() {
     }
 
     @Test
+    fun regularGame_neverShowsANarrationToggle() {
+        // Narration is a tutorial feature: the clips speak the lesson texts, and nothing on a
+        // regular game's screens is narrated. cardkit's paged reader renders a "♪" mute toggle the
+        // moment it is handed a NarrationState, and the in-game rules dialog is built on that
+        // reader — so this pins the invariant that no surface a regular bot game reaches offers a
+        // mute for a voice that never speaks there. (Held once by euchre simply having no
+        // narration wiring; now held on purpose, by the gate at App.kt's GameScreen call site.)
+        startGame()
+        waitForRound1Bid()
+        assertTrue("no narration toggle on the table", nodesWithTag("narrationToggle").isEmpty())
+
+        rule.onNodeWithTag("gameSettingsButton").performClick()
+        assertTrue("no narration toggle in settings", nodesWithTag("narrationToggle").isEmpty())
+        rule.onNodeWithTag("helpButton").performScrollTo().performClick()
+        rule.waitUntil(STEP_TIMEOUT_MS) { nodesWithTag("rulesNext").isNotEmpty() }
+        while (nodesWithTag("rulesNext").isNotEmpty()) {
+            assertTrue(
+                "no narration toggle in the in-game rules reader",
+                nodesWithTag("narrationToggle").isEmpty() && !textExists("♪", substring = true),
+            )
+            rule.onNodeWithTag("rulesNext").performClick()
+            rule.waitForIdle()
+        }
+        rule.onNodeWithTag("rulesClose").performClick()
+        rule.onNodeWithText("Done").performClick()
+    }
+
+    @Test
     fun helpRules_openFromSettings_andDocumentTheBowers() {
         rule.onNodeWithTag("settingsButton").performClick()
         rule.onNodeWithTag("helpButton").performScrollTo().performClick()

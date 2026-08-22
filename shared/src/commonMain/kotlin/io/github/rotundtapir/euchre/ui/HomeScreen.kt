@@ -35,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.rotundtapir.cardkit.monetization.Monetization
+import io.github.rotundtapir.cardkit.ui.tutorial.NarrationState
+import io.github.rotundtapir.cardkit.ui.tutorial.NarrationToggle
 import io.github.rotundtapir.cardkit.ui.SettingsIcon
 import io.github.rotundtapir.cardkit.ui.felt.OnBackgroundIconButton
 import io.github.rotundtapir.cardkit.ui.felt.OnBackgroundOutlinedButton
@@ -54,6 +56,8 @@ fun HomeScreen(
     /** Where "How to play" goes: the interactive tutorial's lesson picker. */
     onHowToPlay: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Null in previews and tests that don't wire audio; the mute is then simply absent. */
+    narration: NarrationState? = null,
 ) {
     var showSettings by remember { mutableStateOf(false) }
 
@@ -91,7 +95,10 @@ fun HomeScreen(
                 OnBackgroundOutlinedButton(
                     onClick = onHowToPlay,
                     modifier = Modifier.testTag("walkthroughButton"),
-                ) { Text("How to play") }
+                    // The ♪ warns that the tutorial speaks aloud — no surprise audio. It drops
+                    // when narration is muted, and the toggle below flips it back any time.
+                ) { Text(if (narration?.enabled == true) "How to play ♪" else "How to play") }
+                if (narration != null) NarrationToggle(narration)
             }
         }
     }

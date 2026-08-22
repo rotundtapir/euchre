@@ -49,6 +49,8 @@ import io.github.rotundtapir.cardkit.ui.deal.runDealAnimation
 import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
 import io.github.rotundtapir.cardkit.ui.tutorial.TutorialAnchors
 import io.github.rotundtapir.cardkit.ui.tutorial.TutorialPage
+import io.github.rotundtapir.cardkit.ui.tutorial.NarrationState
+import io.github.rotundtapir.cardkit.ui.tutorial.NarrationToggle
 import io.github.rotundtapir.cardkit.ui.tutorial.TutorialPagesDialog
 import io.github.rotundtapir.cardkit.ui.tutorial.tutorialTarget
 import io.github.rotundtapir.euchre.engine.EuchreAction
@@ -57,6 +59,7 @@ import io.github.rotundtapir.euchre.engine.HAND_SIZE
 import io.github.rotundtapir.euchre.transitions
 import io.github.rotundtapir.euchre.ui.tutorial.EuchreTutorialSession
 import io.github.rotundtapir.euchre.ui.tutorial.TutorialBubble
+import io.github.rotundtapir.euchre.ui.tutorial.narrationUriFor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.first
@@ -94,6 +97,8 @@ fun GameScreen(
     turnRemainingMillis: Long? = null,
     // Non-null in an online game: adds the emote control to the top bar and shows incoming emotes.
     online: OnlineGameControls? = null,
+    /** Null in previews and tests that don't wire audio; the tutorial is then silent. */
+    narration: NarrationState? = null,
 ) {
     val animationSpeed = settings.animationSpeed
     var sortHand by rememberSaveable { mutableStateOf(settings.sortByDefault) }
@@ -168,10 +173,10 @@ fun GameScreen(
                     view = view,
                     onOpenSettings = { showSettings = true },
                     onMenu = { showLeaveConfirm = true },
-                    trailing = if (online == null) {
-                        null
-                    } else {
-                        { OnlineBarControls(online, turnRemainingMillis) }
+                    trailing = when {
+                        online != null -> ({ OnlineBarControls(online, turnRemainingMillis) })
+                        narration != null -> ({ NarrationToggle(narration, compact = true) })
+                        else -> null
                     },
                 )
                 // The turn card is only public once the deal has actually turned it over.
@@ -257,7 +262,10 @@ fun GameScreen(
             // The packet currently in flight from the deck to a pile, drawn above everything.
             FlyingDealCard(dealState)
             if (tutorial != null && tutorialAnchors != null && !dealState.dealing) {
-                TutorialBubble(tutorial, view, botNames, tutorialAnchors, dealState.overlayOrigin)
+                TutorialBubble(
+                    tutorial, view, botNames, tutorialAnchors, dealState.overlayOrigin,
+                    narration = narration,
+                )
             }
         }
     }
@@ -310,6 +318,8 @@ fun GameScreen(
     if (tutorial != null && lessonComplete) {
         TutorialPagesDialog(
             pages = tutorial.lesson.epilogue + TutorialPage("Lesson complete", tutorial.lesson.completion),
+            narration = narration,
+            narrationUriFor = ::narrationUriFor,
             nextTag = "tutorialEpilogueNext",
             finishLabel = "Next",
             finishTag = "tutorialCompleteContinue",

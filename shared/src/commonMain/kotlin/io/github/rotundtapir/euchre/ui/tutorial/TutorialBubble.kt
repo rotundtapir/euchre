@@ -105,8 +105,7 @@ internal fun TutorialBubble(
     // Trump is not made yet at a bidding step, so fall back to the suit on offer — which is exactly
     // the suit the advice is reasoning about.
     val bowerSuit = view.trump ?: view.upcardSuit
-    // No clips ship in v0.1.0; narration is null and the resolver is the seam audio drops into.
-    NarrateEffect(narration, text) { null }
+    NarrateEffect(narration, text, uriFor = ::narrationUriFor)
 
     BubbleLayout(
         target = target,

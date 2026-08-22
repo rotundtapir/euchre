@@ -9,6 +9,8 @@ import io.github.rotundtapir.cardkit.ui.tutorial.TutorialPage
 import io.github.rotundtapir.cardkit.ui.tutorial.TutorialScriptState
 import io.github.rotundtapir.cardkit.ui.tutorial.cardSpeechText
 import io.github.rotundtapir.euchre.EuchreHouseRules
+import io.github.rotundtapir.euchre.generated.resources.Res
+import org.jetbrains.compose.resources.ExperimentalResourceApi
 
 /**
  * The interactive "How to play": FOUR scripted lessons, each one real hand on a fixed seed replayed
@@ -145,18 +147,30 @@ private val narrationIdByDisplay: Map<String, String> =
 fun narrationIdFor(displayText: String): String? = narrationIdByDisplay[displayText]
 
 /**
+ * The narration clip URI for a display text the tutorial is showing, or null for dynamic texts
+ * with no pre-generated clip. Passed to cardkit's NarrateEffect and TutorialPagesDialog, which
+ * own the playback but not the game's clip lookup.
+ */
+@OptIn(ExperimentalResourceApi::class)
+fun narrationUriFor(displayText: String): String? =
+    narrationIdFor(displayText)?.let { Res.getUri("files/narration/$it.mp3") }
+
+/**
  * Phrase-level speech fixes where a synthesizer stumbles on the written form. RULE (inherited from
  * cardkit): a substitution may only change how the SAME words are rendered — never insert words the
  * screen does not show, or the voice audibly diverges for anyone reading along.
  */
 private val EUCHRE_SPEECH_SUBSTITUTIONS = listOf(
-    // "9, 10, J, Q, K, A" as a bare list draws a stumble on the run of numerals.
-    "9, 10, J, Q, K, A" to "nine, ten, jack, queen, king, ace",
+    // "9, 10, J, Q, K, A" as a bare list draws a stumble on the run of numerals. The trailing "and"
+    // is the one place we bend the rule above — a spoken list of six wants a conjunction, and
+    // without it the voice trails off as though the deck kept going.
+    "9, 10, J, Q, K, A" to "nine, ten, jack, queen, king and ace",
 )
 
 /**
- * Every narration line as a synthesizer should speak it. Nothing consumes this yet; it is the
- * hand-off point for the clip generator when tutorial audio lands.
+ * Every narration line as a synthesizer should speak it — the input to
+ * scripts/generate-narration.sh, and the texts NarrationManifestTest hashes against the
+ * shipped clips.
  */
 val tutorialNarration: List<NarrationLine> = tutorialNarrationSources.map { (id, display) ->
     NarrationLine(id, cardSpeechText(display, EUCHRE_SPEECH_SUBSTITUTIONS))

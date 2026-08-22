@@ -22,7 +22,9 @@ import io.github.rotundtapir.cardkit.ui.AppPlatform
 import io.github.rotundtapir.cardkit.ui.LocalAppConfig
 import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
 import io.github.rotundtapir.cardkit.ui.settings.BotSkill
+import io.github.rotundtapir.cardkit.ui.tutorial.NarrationState
 import io.github.rotundtapir.cardkit.ui.tutorial.TutorialPagesDialog
+import io.github.rotundtapir.cardkit.ui.tutorial.rememberNarrationPlayer
 import io.github.rotundtapir.euchre.online.JoinLink
 import io.github.rotundtapir.euchre.online.OnlineViewModel
 import io.github.rotundtapir.euchre.online.SessionTokenStore
@@ -36,6 +38,7 @@ import io.github.rotundtapir.euchre.ui.online.OnlineFlow
 import io.github.rotundtapir.euchre.ui.tutorial.EuchreTutorialSession
 import io.github.rotundtapir.euchre.ui.tutorial.LessonPickerDialog
 import io.github.rotundtapir.euchre.ui.tutorial.TutorialLesson
+import io.github.rotundtapir.euchre.ui.tutorial.narrationUriFor
 import io.github.rotundtapir.euchre.ui.tutorial.tutorialLesson
 import io.github.rotundtapir.euchre.ui.tutorial.tutorialLessons
 import kotlinx.coroutines.launch
@@ -116,6 +119,19 @@ fun EuchreApp(
     // function the dealing animation's sound hook uses for shuffle/deal effects.
     val playSound = rememberEuchreSoundEffects(view = view, volume = settingsControls.soundVolume)
 
+    // Tutorial voice narration: the toggle is persisted, but being audible additionally requires a
+    // nonzero master volume — at 0 no audio object is ever created, which the -no-audio emulator
+    // runs depend on. Same rule the sound effects follow.
+    val narrationEnabled by settings.narrationEnabled.collectAsState(
+        initial = SettingsDefaults.NARRATION_ENABLED,
+    )
+    val narration = NarrationState(
+        enabled = narrationEnabled,
+        audible = narrationEnabled && settingsControls.soundVolume > 0f,
+        onToggle = { scope.launch { settings.setNarrationEnabled(!narrationEnabled) } },
+        player = rememberNarrationPlayer(),
+    )
+
     // A lesson forces the trick hold on so every completed trick waits to be explained. Decided
     // once, here: the ViewModel's gates and the felt that raises their signal must agree, and two
     // separate derivations of "is the hold on" could disagree and wedge the game.
@@ -184,6 +200,10 @@ fun EuchreApp(
                 onDealAnimationFinish = vm::dealAnimationFinished,
                 onTrickAcknowledge = vm::acknowledgeTrick,
                 soundHook = playSound,
+                // Only a lesson narrates, so only a lesson offers the mute. Passed unconditionally
+                // the ♪ sits in every bot game's score bar as a dead switch: nothing on that screen
+                // ever speaks, so tapping it changes nothing the player can hear.
+                narration = if (activeLesson != null) narration else null,
                 tutorial = activeLesson?.let { lesson ->
                     remember(lesson, lessonStepIndex) {
                         EuchreTutorialSession(
@@ -228,6 +248,7 @@ fun EuchreApp(
                     appScreen = AppScreen.ONLINE.name
                 },
                 onHowToPlay = { showLessonPicker = true },
+                narration = narration,
             )
         }
 
@@ -251,6 +272,8 @@ fun EuchreApp(
         primerLessonId?.let(::tutorialLesson)?.let { lesson ->
             TutorialPagesDialog(
                 pages = lesson.prologue,
+                narration = narration,
+                narrationUriFor = ::narrationUriFor,
                 nextTag = "tutorialPrimerNext",
                 finishLabel = "Deal",
                 finishTag = "tutorialPrimerStart",

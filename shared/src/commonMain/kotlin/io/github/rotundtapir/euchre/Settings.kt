@@ -21,6 +21,7 @@ object SettingsKeys {
     const val SORT_HAND_BY_DEFAULT = "sort_hand_by_default"
     const val HOLD_TRICKS = "hold_tricks"
     const val SOUND_VOLUME = "sound_volume"
+    const val NARRATION_ENABLED = "narration_enabled"
     const val BOT_SKILL = "bot_skill"
     const val STICK_THE_DEALER = "stick_the_dealer"
     const val DEFEND_ALONE = "defend_alone"
@@ -38,6 +39,9 @@ object SettingsDefaults {
     const val SORT_HAND_BY_DEFAULT = false
     const val HOLD_TRICKS = false
     const val SOUND_VOLUME = 0.7f
+
+    /** Tutorial voice narration — on by default; the home screen advertises it and offers the mute. */
+    const val NARRATION_ENABLED = true
     val BOT_SKILL = BotSkill.STANDARD
 
     /** On by default: a hand where everyone passes twice is a dull throw-in. */
@@ -66,6 +70,7 @@ interface SettingsRepository {
     val sortHandByDefault: Flow<Boolean>
     val holdTricks: Flow<Boolean>
     val soundVolume: Flow<Float>
+    val narrationEnabled: Flow<Boolean>
     val botSkill: Flow<BotSkill>
     val stickTheDealer: Flow<Boolean>
     val defendAlone: Flow<Boolean>
@@ -83,6 +88,7 @@ interface SettingsRepository {
     suspend fun setSortHandByDefault(value: Boolean)
     suspend fun setHoldTricks(value: Boolean)
     suspend fun setSoundVolume(value: Float)
+    suspend fun setNarrationEnabled(value: Boolean)
     suspend fun setBotSkill(value: BotSkill)
     suspend fun setStickTheDealer(value: Boolean)
     suspend fun setDefendAlone(value: Boolean)
@@ -106,6 +112,9 @@ class KeyValueSettingsRepository(private val store: KeyValueStore) : SettingsRep
         store.booleanSetting(SettingsKeys.HOLD_TRICKS, SettingsDefaults.HOLD_TRICKS)
     override val soundVolume: Flow<Float> =
         store.floatSetting(SettingsKeys.SOUND_VOLUME, SettingsDefaults.SOUND_VOLUME)
+
+    override val narrationEnabled: Flow<Boolean> =
+        store.booleanSetting(SettingsKeys.NARRATION_ENABLED, SettingsDefaults.NARRATION_ENABLED)
     override val botSkill: Flow<BotSkill> =
         store.enumSetting(SettingsKeys.BOT_SKILL, SettingsDefaults.BOT_SKILL, BotSkill::fromName)
     override val stickTheDealer: Flow<Boolean> =
@@ -136,6 +145,9 @@ class KeyValueSettingsRepository(private val store: KeyValueStore) : SettingsRep
     override suspend fun setHoldTricks(value: Boolean) = store.putBoolean(SettingsKeys.HOLD_TRICKS, value)
 
     override suspend fun setSoundVolume(value: Float) = store.putFloat(SettingsKeys.SOUND_VOLUME, value)
+
+    override suspend fun setNarrationEnabled(value: Boolean) =
+        store.putBoolean(SettingsKeys.NARRATION_ENABLED, value)
 
     override suspend fun setBotSkill(value: BotSkill) = store.putString(SettingsKeys.BOT_SKILL, value.name)
 
