@@ -202,11 +202,15 @@ class OnlineServerTest {
     }
 
     @Test
-    fun `health reports the euchre server's live room counts`() = testApplication {
+    fun `health names euchre as the responder and reports its live room counts`() = testApplication {
         val scope = startServer(devConfig())
         try {
+            // The "game" field is why this is pinned by exact bytes rather than parsed loosely: both
+            // suites' preconditions ask "is a server answering FOR MY GAME", so a euchre server that
+            // stopped identifying itself would let 500's tests mistake it for theirs — the failure
+            // that cost three false red runs before the field existed.
             assertEquals(
-                """{"status":"ok","rooms":0,"activeGames":0,"draining":false}""",
+                """{"status":"ok","game":"euchre","rooms":0,"activeGames":0,"draining":false}""",
                 client.get("/health").bodyAsText(),
             )
         } finally {

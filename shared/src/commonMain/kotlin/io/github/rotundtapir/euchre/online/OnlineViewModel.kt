@@ -60,6 +60,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Which online screen is showing. Lobby/Game are chosen from the server's [LobbyState.phase]. */
 enum class OnlineScreen { ENTRY, CREATE, JOIN, LOBBY, GAME }
@@ -211,9 +212,11 @@ class OnlineViewModel(
             var backoff = INITIAL_BACKOFF_MILLIS
             while (isActive && !intentionalDisconnect) {
                 val hello = Hello(PROTOCOL_VERSION, appVersion, platform, sessionToken, buildFlavor, commit)
+                var connectedThisAttempt = false
                 val collector = launch { client.incoming.collect(::handleServerMessage) }
                 val greeter = launch {
                     client.state.first { it == ConnectionState.CONNECTED }
+                    connectedThisAttempt = true
                     client.send(hello)
                 }
                 runCatching { client.run(wsUrl) }
@@ -221,11 +224,40 @@ class OnlineViewModel(
                 greeter.cancel()
                 sessionReady.value = false
                 if (intentionalDisconnect) break
-                delay(backoff)
+                // A drop after a real connection reconnects promptly; only consecutive FAILED
+                // attempts back off, or a dead server would be hammered at the initial interval
+                // forever. Without the reset, a drop late in a long game waits out an interval
+                // accumulated across the whole session. The wait itself can be cut short by the
+                // foreground nudge — a player looking at the screen shouldn't sit out a timer they
+                // cannot see.
+                if (connectedThisAttempt) backoff = INITIAL_BACKOFF_MILLIS
+                withTimeoutOrNull(backoff) { retryNow.first() }
                 backoff = (backoff * 2).coerceAtMost(MAX_BACKOFF_MILLIS)
             }
         }
     }
+
+    /**
+     * Called when the app returns to the foreground (ON_START). If the connection is down, skip
+     * whatever remains of the reconnect backoff and retry NOW — the player is looking at the
+     * screen, and waiting out a timer they cannot see reads as "the app is slow to receive moves".
+     *
+     * Deliberately does NOT touch a connection reporting CONNECTED. The 20s client ping owns zombie
+     * detection: a dead socket flips to CLOSED within about two intervals, after which the loop
+     * reconnects and this nudge's skip applies. Force-cycling a healthy-looking socket instead
+     * hands the current turn to the bot on any server without the in-game disconnect grace — which
+     * is a move made "without the player's input" the moment the app foregrounds, and is exactly
+     * the regression this shape exists to avoid (rotundtapir/500#45).
+     */
+    fun onAppForegrounded() {
+        if (intentionalDisconnect) return
+        if (connectJob?.isActive != true) return
+        if (connection.value == ConnectionState.CONNECTED) return
+        retryNow.tryEmit(Unit)
+    }
+
+    /** Fired by [onAppForegrounded] to cut a pending reconnect backoff short. */
+    private val retryNow = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     // --- Navigation -------------------------------------------------------------------------------
     fun goToCreate() {

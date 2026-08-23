@@ -34,11 +34,13 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.ui)
-            // Reaches both targets; tutorial narration clips land here when audio ships.
+            // Reaches both targets; carries the tutorial narration clips.
             implementation(compose.components.resources)
             // JetBrains' multiplatform androidx.lifecycle: ViewModel/viewModelScope/viewModel()
             // under the same package names as on Android.
             api(libs.jetbrains.lifecycle.viewmodel.compose)
+            // LifecycleEventEffect for the online foreground nudge (ON_START -> reconnect check).
+            implementation(libs.jetbrains.lifecycle.runtime.compose)
         }
         androidMain.dependencies {
             implementation(libs.androidx.datastore.preferences)

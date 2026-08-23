@@ -33,6 +33,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import io.github.rotundtapir.cardkit.monetization.Monetization
 import io.github.rotundtapir.cardkit.net.ConnectionState
 import io.github.rotundtapir.cardkit.ui.AppPlatform
@@ -108,6 +110,14 @@ fun OnlineFlow(
         // off in-game, where deal/trick animations already drive frames.
         if (LocalAppConfig.current.platform == AppPlatform.WEB && screen != OnlineScreen.GAME) {
             NetworkFrameKeepAlive()
+        }
+        // Android kills a backgrounded app's sockets silently, and a hidden browser tab can be
+        // throttled the same way, so returning to the app can find a connection that is already
+        // dead or a reconnect sitting out a backoff. Nudge it: moves made while away then appear
+        // now rather than after a ping timeout. The nudge never cycles a live socket — see
+        // OnlineViewModel.onAppForegrounded for why that distinction is the whole point.
+        LifecycleEventEffect(Lifecycle.Event.ON_START) {
+            vm.onAppForegrounded()
         }
         when (screen) {
             OnlineScreen.ENTRY -> OnlineEntryScreen(
