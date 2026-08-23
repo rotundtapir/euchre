@@ -214,7 +214,11 @@ test('an online game survives a server SIGKILL and restart under a live client',
         const cards = await visibleCards(page);
         return cards.join() !== cardsBefore.join();
       },
-      { timeout: 30_000 },
+      // 60s, not 30: this move is the first round-trip through a JVM that was SIGKILLed seconds
+      // ago, and the suite runs two workers on a shared machine. The contract is that the table
+      // moves, not that it moves inside half a minute — and at 30s this was the suite's one flaky
+      // test, failing at ~41s and passing on retry in ~9s, which is variance rather than a defect.
+      { timeout: 60_000 },
     )
     .toBe(true);
 });
