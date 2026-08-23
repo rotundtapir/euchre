@@ -197,6 +197,8 @@ fun OpponentsRow(
     // Non-null in an online game: records each seat's rect so an incoming emote's bubble can point
     // at whoever sent it.
     anchors: TutorialAnchors? = null,
+    // Short screen: drop the row's optional lines so the felt and the fan keep their height.
+    compact: Boolean = false,
 ) {
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
         for (offset in 1 until PLAYER_COUNT) {
@@ -208,6 +210,39 @@ fun OpponentsRow(
                 dealShown = dealShown,
                 modifier = Modifier.weight(1f),
                 anchors = anchors,
+                compact = compact,
+            )
+        }
+    }
+}
+
+/**
+ * The opponents stacked down a narrow side panel, for a screen wider than it is tall. Compacting
+ * the row vertically is not enough at a landscape phone's height — the portrait stack does not fit
+ * at any size — so their whole height goes back to the felt and the fan instead.
+ *
+ * Seat order matches [OpponentsRow] (clockwise from the human), so a player who rotates the device
+ * finds the same opponents in the same sequence rather than having to re-read the table.
+ */
+@Composable
+fun OpponentsColumn(
+    view: EuchrePlayerView,
+    botNames: Map<Seat, String>,
+    dealState: DealAnimationState,
+    dealShown: Boolean,
+    modifier: Modifier = Modifier,
+    anchors: TutorialAnchors? = null,
+) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        for (offset in 1 until PLAYER_COUNT) {
+            OpponentStatus(
+                view = view,
+                botNames = botNames,
+                seat = Seat((view.seat.index + offset) % PLAYER_COUNT),
+                dealState = dealState,
+                dealShown = dealShown,
+                anchors = anchors,
+                compact = true,
             )
         }
     }
@@ -222,6 +257,7 @@ private fun OpponentStatus(
     dealShown: Boolean,
     modifier: Modifier = Modifier,
     anchors: TutorialAnchors? = null,
+    compact: Boolean = false,
 ) {
     // A seat is only "sitting out" once the hand's active set is known; before then everyone plays.
     val sittingOut = view.activeSeats.isNotEmpty() && seat !in view.activeSeats
@@ -240,14 +276,16 @@ private fun OpponentStatus(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
-        if (isPartner) {
+        // The partner marker is the first thing to go when height is short: the seat's name is
+        // already in the team colour, so the information survives without the line.
+        if (isPartner && !compact) {
             Text("(partner)", style = MaterialTheme.typography.labelSmall, color = nameColor)
         }
         // The pile's footprint is held even for a seat that is sitting out, so a lone hand does
         // not shorten this row — which would hand the felt below extra height and rescale every
         // card on it, mid-hand.
         Box(
-            modifier = Modifier.heightIn(min = OPPONENT_PILE_HEIGHT),
+            modifier = Modifier.heightIn(min = if (compact) OPPONENT_PILE_HEIGHT_COMPACT else OPPONENT_PILE_HEIGHT),
             contentAlignment = Alignment.Center,
         ) {
             if (sittingOut) {
@@ -256,7 +294,7 @@ private fun OpponentStatus(
                 OpponentPile(
                     seat = seat,
                     state = dealState,
-                    width = OPPONENT_PILE_WIDTH,
+                    width = if (compact) OPPONENT_PILE_WIDTH_COMPACT else OPPONENT_PILE_WIDTH,
                     // No cards in front of anyone until this hand has been dealt on screen.
                     handSize = if (dealShown) view.handSizes[seat] ?: 0 else 0,
                 )
@@ -569,6 +607,11 @@ private val MAX_TRICK_CARD = 96.dp
 /** The face-down pile drawn beside each opponent, and the row height it claims. */
 private val OPPONENT_PILE_WIDTH = 44.dp
 private val OPPONENT_PILE_HEIGHT = OPPONENT_PILE_WIDTH * CardAspectRatio + 8.dp
+
+// Compact pile for short screens. Still a recognisable card back — the point is to spend less
+// height on the opponents, not to hide how many cards they hold.
+private val OPPONENT_PILE_WIDTH_COMPACT = 28.dp
+private val OPPONENT_PILE_HEIGHT_COMPACT = OPPONENT_PILE_WIDTH_COMPACT * CardAspectRatio + 4.dp
 
 /** How far a played card's name label may overhang its card before it ellipsizes. */
 private val NAME_OVERHANG = 16.dp

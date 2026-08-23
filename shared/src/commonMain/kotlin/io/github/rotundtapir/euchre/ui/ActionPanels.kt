@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.rotundtapir.cardkit.core.Card
 import io.github.rotundtapir.cardkit.core.Seat
@@ -67,6 +68,9 @@ fun ActionArea(
     // advances the script. [anchors] records where that action sits so the bubble can point at it.
     tutorial: EuchreTutorialSession? = null,
     anchors: TutorialAnchors? = null,
+    // Width of the cards in the fan, chosen by the caller from the height the screen actually has.
+    // A short screen shrinks the hand rather than letting it fall off the bottom.
+    cardWidth: Dp = HAND_CARD_WIDTH,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -77,7 +81,7 @@ fun ActionArea(
             fontWeight = if (view.isMyTurn) FontWeight.Bold else FontWeight.Normal,
         )
         Spacer(Modifier.height(4.dp))
-        val hand = HandParams(view, sortHand, onToggleSort, tutorial, anchors)
+        val hand = HandParams(view, sortHand, onToggleSort, tutorial, anchors, cardWidth)
         when {
             !view.isMyTurn -> {
                 Text(view.toAct?.let { "Waiting for ${seatLabel(view.seat, botNames, it)}…" } ?: "")
@@ -382,6 +386,7 @@ private data class HandParams(
     val onToggleSort: () -> Unit,
     val tutorial: EuchreTutorialSession? = null,
     val anchors: TutorialAnchors? = null,
+    val cardWidth: Dp = HAND_CARD_WIDTH,
 ) {
     /**
      * Takes [action]: hands it to the engine and, during a lesson, advances the script. The two
@@ -398,6 +403,9 @@ private data class HandParams(
 }
 
 /** Fan exposure: each card advances this fraction of a card width, so only that strip is visible. */
+/** The fan's card width on a screen tall enough not to need scaling. */
+internal val HAND_CARD_WIDTH = 84.dp
+
 private const val HAND_EXPOSURE = 0.5f
 
 /** Tags the human's fan, so tests can scope queries to the cards actually in hand. */
@@ -457,7 +465,7 @@ private fun HumanHand(
         ) {
             CardHand(
                 cards = cards,
-                cardWidth = 84.dp,
+                cardWidth = hand.cardWidth,
                 exposure = HAND_EXPOSURE,
                 playable = playable,
                 dimUnplayable = dimUnplayable,

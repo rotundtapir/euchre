@@ -1,15 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception
 package io.github.rotundtapir.euchre.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -40,6 +46,7 @@ import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.cardkit.monetization.Monetization
 import io.github.rotundtapir.cardkit.net.Emote
 import io.github.rotundtapir.cardkit.net.EmoteReceived
+import io.github.rotundtapir.cardkit.ui.CardAspectRatio
 import io.github.rotundtapir.cardkit.ui.SoundEffect
 import io.github.rotundtapir.cardkit.ui.deal.DealAnimationState
 import io.github.rotundtapir.cardkit.ui.deal.DealingHandRow
@@ -133,9 +140,7 @@ fun GameScreen(
         }
     }
 
-    // The tallest the hand area has had to be this game; see the Box that measures it below.
     val density = LocalDensity.current
-    var handAreaFloor by remember { mutableStateOf(0.dp) }
 
     val dealState = remember { DealAnimationState() }
     dealState.soundHook = soundHook
@@ -158,37 +163,40 @@ fun GameScreen(
         color = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground,
     ) {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .onGloballyPositioned { dealState.overlayOrigin = it.positionInRoot() },
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .safeDrawingPadding()
-                    .padding(horizontal = 12.dp),
-            ) {
-                ScoreBar(
-                    view = view,
-                    onOpenSettings = { showSettings = true },
-                    onMenu = { showLeaveConfirm = true },
-                    trailing = when {
-                        online != null -> ({ OnlineBarControls(online, turnRemainingMillis) })
-                        narration != null -> ({ NarrationToggle(narration, compact = true) })
-                        else -> null
-                    },
-                )
-                // The turn card is only public once the deal has actually turned it over.
-                TrumpLine(view, botNames, upcardRevealed = dealShown)
-                Spacer(Modifier.height(12.dp))
-                OpponentsRow(view, botNames, dealState, dealShown, anchors = seatAnchors)
+            // Size the chrome from the height actually available, the way TrickArea already sizes
+            // the felt's cards. A tall phone is unchanged; a short window compacts the opponents'
+            // row and shrinks the fan rather than letting it fall off the bottom.
+            val shortScreen = maxHeight < SHORT_SCREEN_HEIGHT
+            // Short AND wider than tall — a phone in landscape, or most browser windows. The
+            // opponents move into a side column, handing their whole height back to the felt and
+            // the fan. Compacting vertically is not enough: the portrait stack does not fit in a
+            // ~390dp-tall viewport at any card size.
+            val sideBySide = shortScreen && maxWidth > maxHeight
+            val handFraction = if (sideBySide) HAND_HEIGHT_FRACTION_WIDE else HAND_HEIGHT_FRACTION
+            val handCardWidth = (maxHeight * handFraction / CardAspectRatio)
+                .coerceIn(MIN_HAND_CARD_WIDTH, HAND_CARD_WIDTH)
+            // The tallest the hand area has had to be. Keyed on the viewport height because the
+            // floor only ever grows: without the key, a floor measured in a tall window would
+            // survive a resize to a short one and squeeze the very felt it exists to protect.
+            // Android recreates on rotation and would reset it anyway; the web resizes in place and
+            // would not — and the web is why this change exists.
+            var handAreaFloor by remember(maxHeight) { mutableStateOf(0.dp) }
+            // The felt and the player's own half: one definition used by both arrangements, so a
+            // change to either cannot silently apply in only one orientation.
+            val board: @Composable ColumnScope.() -> Unit = {
                 TrickArea(
                     view = view,
                     botNames = botNames,
                     animationSpeed = animationSpeed,
                     dealState = dealState,
-                    modifier = Modifier.weight(1f),
+                    // The felt may shrink, but never to nothing: a trick has to stay readable once
+                    // everything else has taken its share.
+                    modifier = Modifier.weight(1f).heightIn(min = MIN_FELT_HEIGHT),
                     holdTricks = holdTricks,
                     onTrickAcknowledge = onTrickAcknowledge,
                     // A lesson's bubble carries the "tap the trick" instruction itself.
@@ -225,6 +233,9 @@ fun GameScreen(
                             state = dealState,
                             humanSeat = view.seat,
                             timings = dealTimings(animationSpeed),
+                            // Matches the fan it becomes, or the row would overflow a short screen
+                            // and then jump size the moment the deal finished.
+                            cardWidth = handCardWidth,
                         )
                         // A fresh hand whose shuffle has not run yet — held behind a result dialog,
                         // or simply not started: keep the cards and the buttons off screen.
@@ -240,9 +251,50 @@ fun GameScreen(
                                 onAction = onAction,
                                 tutorial = tutorial,
                                 anchors = tutorialAnchors,
+                                cardWidth = handCardWidth,
                             )
                         }
                     }
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .safeDrawingPadding()
+                    .padding(horizontal = 12.dp),
+            ) {
+                ScoreBar(
+                    view = view,
+                    onOpenSettings = { showSettings = true },
+                    onMenu = { showLeaveConfirm = true },
+                    trailing = when {
+                        online != null -> ({ OnlineBarControls(online, turnRemainingMillis) })
+                        narration != null -> ({ NarrationToggle(narration, compact = true) })
+                        else -> null
+                    },
+                )
+                if (sideBySide) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Column(modifier = Modifier.width(SIDE_PANEL_WIDTH)) {
+                            // The turn card is only public once the deal has turned it over.
+                            TrumpLine(view, botNames, upcardRevealed = dealShown)
+                            Spacer(Modifier.height(8.dp))
+                            OpponentsColumn(view, botNames, dealState, dealShown, anchors = seatAnchors)
+                        }
+                        Column(modifier = Modifier.weight(1f).fillMaxHeight()) { board() }
+                    }
+                } else {
+                    // The turn card is only public once the deal has actually turned it over.
+                    TrumpLine(view, botNames, upcardRevealed = dealShown)
+                    Spacer(Modifier.height(12.dp))
+                    OpponentsRow(
+                        view, botNames, dealState, dealShown,
+                        anchors = seatAnchors, compact = shortScreen,
+                    )
+                    board()
                 }
                 Spacer(Modifier.height(8.dp))
                 monetization.BannerSlot(Modifier.fillMaxWidth())
@@ -462,3 +514,25 @@ private const val SECONDS_PER_MINUTE = 60L
 
 /** Before any hand has been animated. Below every real hand number, which start at zero. */
 private const val NO_HAND = -1
+
+/**
+ * Below this height the game screen switches to its compact chrome. Chosen just under the shortest
+ * portrait phone viewport and well above a landscape phone's, so rotating is what trips it rather
+ * than merely owning a small device.
+ */
+private val SHORT_SCREEN_HEIGHT = 600.dp
+
+/** Share of the screen's height the fan may take, before the floor below applies. */
+private const val HAND_HEIGHT_FRACTION = 0.21f
+
+/** Side by side the opponents no longer compete for height, so the fan can have more of it. */
+private const val HAND_HEIGHT_FRACTION_WIDE = 0.30f
+
+/** The felt's floor — below this a trick stops being readable, so other things give way first. */
+private val MIN_FELT_HEIGHT = 96.dp
+
+/** Width of the landscape side panel: enough for a seat name plus its one-line status. */
+private val SIDE_PANEL_WIDTH = 190.dp
+
+/** The fan never shrinks past this: smaller and the pips stop being readable at arm's length. */
+private val MIN_HAND_CARD_WIDTH = 48.dp
