@@ -9,7 +9,7 @@ import { awaitAppBoot, clickByRole, collectErrors } from './helpers';
 //
 // Player name and server URL arrive as URL params so we never type into the Compose canvas.
 const ONLINE_FIXTURE =
-  '/euchre/?serverUrl=ws://localhost:8080&playerName=Tester&animationSpeed=OFF&soundVolume=0';
+  '/euchre/?serverUrl=ws://localhost:8081&playerName=Tester&animationSpeed=OFF&soundVolume=0';
 
 test('connects to the server and creates a lobby', async ({ page }) => {
   const errors = collectErrors(page);
@@ -111,7 +111,7 @@ test('opening your own invite link returns you to your lobby', async ({ page }) 
 test('an invite link from someone else opens the join screen with the code prefilled', async ({ page }) => {
   const errors = collectErrors(page);
   // A fresh tab with no session token: this is what a guest following a shared link sees.
-  await page.goto('/euchre/?serverUrl=ws://localhost:8080&playerName=Guest&joinCode=AB12' +
+  await page.goto('/euchre/?serverUrl=ws://localhost:8081&playerName=Guest&joinCode=AB12' +
     '&animationSpeed=OFF&soundVolume=0');
   await expect(page.locator('#loading')).toHaveCount(0, { timeout: 60_000 });
   await expect(page.getByText('Join a game')).toBeVisible({ timeout: 30_000 });

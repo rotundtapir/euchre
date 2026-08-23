@@ -40,7 +40,7 @@ import java.net.Socket
  * only exists on Android (an `ACTION_SEND` chooser rather than a clipboard copy).
  *
  * Requires a server on the host: `DEV_MODE=true ./gradlew :server:run` — the emulator reaches it at
- * `ws://10.0.2.2:8080`. Without one these skip via [assumeTrue] rather than fail, so the rest of the
+ * `ws://10.0.2.2:8081`. Without one these skip via [assumeTrue] rather than fail, so the rest of the
  * connected suite still runs on a plain emulator and CI stays green without a server step.
  *
  * Name-ordered: the share test opens the system share sheet, which is system UI a Compose test
@@ -53,7 +53,10 @@ class OnlineFlowTest {
     companion object {
         /** The host machine as the emulator sees it. */
         private const val SERVER_HOST = "10.0.2.2"
-        private const val SERVER_PORT = 8080
+        // 8081, not 8080: that is 500's dev-server convention. Two games probing one port means
+        // whichever server is up answers the other's precondition, and the suite fails at the
+        // handshake instead of self-skipping — a false failure blamed on the wrong repo.
+        private const val SERVER_PORT = 8081
         private const val SERVER_URL = "ws://$SERVER_HOST:$SERVER_PORT"
         private const val REACH_TIMEOUT_MS = 2_000
         private const val STEP_TIMEOUT_MS = 30_000L

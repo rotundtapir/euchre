@@ -41,7 +41,7 @@ cardkit-ui machinery, so almost all of it transfers directly.
   runner's default AVD screen is too small and below-the-fold clicks miss.
 - The connected task **uninstalls the app** from every device it ran against.
 - Online tests against a local server: host-run `DEV_MODE=true ./gradlew
-  :server:run`, app pointed at `ws://10.0.2.2:8080`; make the test self-skip
+  :server:run`, app pointed at `ws://10.0.2.2:8081`; make the test self-skip
   when the server isn't up (500's `OnlineFlowTest` does).
 
 ## Web (Kotlin/Wasm) e2e — Playwright over the production dist
@@ -151,6 +151,8 @@ Three constraints on writing these specs, each learned the hard way:
   never persisted, so a link cannot repoint someone's saved online settings.
 
 **Android.** `EXTRA_SERVER_URL` and `EXTRA_PLAYER_NAME` mirror those params; from the emulator the
-host's dev server is `ws://10.0.2.2:8080`, started with `DEV_MODE=true ./gradlew :server:run`. An
+host's dev server is `ws://10.0.2.2:8081`, started with `PORT=8081 DEV_MODE=true ./gradlew
+:server:run` — 8081 rather than the default, because 8080 is 500's dev-server convention and a
+euchre server there answers 500's probe, turning its self-skip into a handshake failure. An
 online instrumented test should **self-skip when no server answers**, so the suite stays green on a
 runner without one — CI's `android-e2e` job does not start a server.

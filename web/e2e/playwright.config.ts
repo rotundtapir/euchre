@@ -26,14 +26,17 @@ export default defineConfig({
     },
     {
       // The online game server, for online.spec.ts. Built by `./gradlew :server:installDist`.
+      // Port 8081, not 8080: 8080 is 500's dev-server convention, and a euchre server sitting on
+      // it answers 500's connected-test probe — which then fails at the handshake instead of
+      // self-skipping, reading as "500 is broken". One port per game keeps the two suites apart.
       // DEV_MODE relaxes the rate/connection caps and honours a client-supplied seed;
       // ALLOWED_ORIGINS=* lets the localhost page connect; MIN_APP_VERSION=0.0.0 accepts whatever
       // version the built web client reports. DATA_DIR gives it somewhere to snapshot rooms, which
       // restart.spec.ts needs to survive a kill.
       command:
-        'PORT=8080 DEV_MODE=true ALLOWED_ORIGINS=* MIN_APP_VERSION=0.0.0 DATA_DIR=.server-data ' +
+        'PORT=8081 DEV_MODE=true ALLOWED_ORIGINS=* MIN_APP_VERSION=0.0.0 DATA_DIR=.server-data ' +
         '../../server/build/install/server/bin/server',
-      url: 'http://localhost:8080/health',
+      url: 'http://localhost:8081/health',
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
