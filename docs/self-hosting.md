@@ -97,3 +97,29 @@ worth banning on: connection-cap hits, rate limiting, lobby-creation floods, mal
 join-code scanning. If you run fail2ban, that format is what to match on. The project's own
 deployment does exactly this; note that its bans are IPv4-only, because Docker does not maintain the
 `DOCKER-USER` chain for IPv6 by default.
+
+A filter that matches the format:
+
+```ini
+# /etc/fail2ban/filter.d/euchre-server.conf
+[Definition]
+failregex = ^.*ABUSE event=\S+ ip=<HOST> .*$
+ignoreregex =
+```
+
+Two things about the jail are worth knowing before you write one, because both fail quietly:
+
+- **Read the container's journald stream, not a log file**: `backend = systemd` with
+  `journalmatch = CONTAINER_NAME=euchre-server`, matching the container name in your compose file.
+- **Ban in `DOCKER-USER`**, e.g.
+  `banaction = iptables-multiport[chain="DOCKER-USER"]`. Docker's forwarded packets bypass the
+  `INPUT` chain, so a default ban leaves the client connecting happily while
+  `fail2ban-client status` cheerfully counts bans it is not enforcing.
+
+Thresholds (`maxretry`, `findtime`, `bantime`) are yours to tune: the right numbers depend on how
+much traffic you carry and how tolerant you want to be of a flaky client retrying.
+
+If you host both this and [500](https://github.com/rotundtapir/500) on one machine, give each its own
+jail rather than one jail matching both containers. A shared jail means one game's noisy-but-innocent
+client can ban players of the other, and thresholds tuned for one server's event rate will not suit
+two.

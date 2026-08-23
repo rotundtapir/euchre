@@ -26,6 +26,22 @@ One-time setup and the release gate, in order. Mirrors 500's release process.
       > **Jack:** `~/keystores/` needs an OFFLINE backup — the key is unrecoverable and
       > unrotatable once an APK ships. Move the two password files into your password manager,
       > after which the plaintext copies can be deleted (CI has its own copies in the secrets).
+- [ ] **Deploy secrets** — `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_HOST`, `DEPLOY_PORT`,
+      for the `deploy-server` job. Three things learned from 500's setup rather than rediscovered:
+
+      - **Its own key**, not 500's. Both authorise `root`, so this is not about privilege — it is
+        that euchre's key can be revoked after a leak without breaking 500's deploys mid-incident,
+        and GitHub secrets are per-repo regardless. One `ssh-keygen`, one `authorized_keys` line.
+      - Authorise it with **`restrict`** (plus `pty` if the deploy needs a terminal — ours runs
+        `docker compose` over ssh). `restrict` implies the `no-*` forwarding flags and any added
+        later, so it ages better than listing them. Note what it does *not* buy: `from=` is not
+        practical for GitHub-hosted runners, whose egress ranges are large and change, and a
+        `command=` wrapper would have to permit the whole multi-step deploy anyway.
+      - `DEPLOY_KNOWN_HOSTS` is plain `ssh-keyscan -p <port> <host>` output, pasted unedited. Scan
+        **whatever `DEPLOY_HOST` actually contains** — scanning the hostname while the secret holds
+        an IP (or vice versa) yields a host-key mismatch on the first deploy. A non-22 port makes
+        keyscan emit `[host]:port` lines, which is what ssh then expects to match.
+
 - [x] **Launcher icon** — a generated placeholder set is in place (adaptive `mipmap-anydpi-v26`
       plus every density). Deliberately provisional; final artwork lands with the store release.
 
@@ -37,12 +53,10 @@ compiles and runs, but is **not** published, so its monetization ids stay placeh
 - `app/src/play/AndroidManifest.xml` carries Google's **sample** AdMob APPLICATION_ID.
 - The play `MonetizationProvider` uses Google's **test** ad units for every build type.
 - `remove_ads` refers to a Play Console product that does not exist yet.
-- **Store artwork**: the launcher icon is a generated placeholder, and
-  `fastlane/metadata/android/en-US/images/` is empty — no feature graphic, no phone screenshots.
-  Nothing consumes them until a store listing exists, and real screenshots are trivial to capture
-  from the finished app (both the emulator and the web build render the same UI), so they are
-  deliberately not faked now. The fastlane *text* metadata (title, descriptions, changelog) is
-  written and current.
+- **Store artwork**: the launcher icon is a generated placeholder, and there is no feature graphic.
+  Phone screenshots now exist — five, captured from the real app by `scripts/screenshots.py`, two of
+  them showing genuine cross-play — so re-shooting after a UI change is a scripted step rather than a
+  manual one. The fastlane *text* metadata (title, descriptions, changelog) is written and current.
 
 Nothing here blocks a v0.1.0 tag. When a Play release is scheduled: create the AdMob app +
 banner/interstitial units and the Play Console app + `remove_ads` product, complete the
@@ -60,6 +74,11 @@ in for **release builds only** — never point debug builds at live units (inval
 - [ ] Permission allowlist: `aapt dump permissions` on the FOSS APK shows `INTERNET` and **nothing
       else**. CI gates this; re-check by hand whenever the manifest changes, and update PRIVACY.md in
       the same change if the list grows.
+- [ ] **First tag only:** make `ghcr.io/rotundtapir/euchre-server` public (package → Settings →
+      Change visibility). The package does not exist until that first tag pushes it, and until it is
+      public the VPS's `docker compose pull` fails with a 403/manifest-unknown that reads like a
+      missing tag rather than a permissions problem. It persists across later pushes; this is a
+      one-time step. (Same trap 500 hit — see its runbook.)
 - [ ] Server: the `v*` tag published `ghcr.io/rotundtapir/euchre-server` and the deploy job reported
       `/health` ok on the euchre hostname. If this release changed `RoomSnapshot.CURRENT_VERSION`,
       drain the server **first** (`POST /admin/drain`, wait for `activeGames:0`) so in-flight games
