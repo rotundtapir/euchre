@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -40,7 +41,9 @@ import io.github.rotundtapir.cardkit.net.ConnectionState
 import io.github.rotundtapir.cardkit.ui.AppPlatform
 import io.github.rotundtapir.cardkit.ui.LocalAppConfig
 import io.github.rotundtapir.euchre.online.OnlineScreen
+import io.github.rotundtapir.euchre.LocalAppReloader
 import io.github.rotundtapir.euchre.online.OnlineViewModel
+import io.github.rotundtapir.euchre.online.updateGuidance
 import io.github.rotundtapir.euchre.rememberEuchreSoundEffects
 import io.github.rotundtapir.euchre.ui.GameScreen
 import io.github.rotundtapir.euchre.ui.OnlineGameControls
@@ -71,11 +74,30 @@ fun OnlineFlow(
     // Version gate is terminal — keep it modal. Everything else (stale/illegal/rate-limited) is a
     // brief, non-blocking banner so a rejected move never stalls the game behind a dialog.
     updateRequired?.let { message ->
+        val appConfig = LocalAppConfig.current
+        val uriHandler = LocalUriHandler.current
+        val appReloader = LocalAppReloader.current
+        val guidance = remember(message, appConfig) {
+            updateGuidance(appConfig.version, message.minAppVersion, appConfig.platform, appConfig.flavor)
+        }
         AlertDialog(
             onDismissRequest = onExit,
             title = { Text("Update required") },
-            text = { Text(message) },
+            text = { Text(guidance.body) },
             confirmButton = {
+                // The route out, when this build has one: web reloads in place (a stale wasm client
+                // is fixed by a reload, not a store visit), Android points at the store it came
+                // from. A sideloaded build gets no button rather than one sending it somewhere it
+                // did not install from.
+                guidance.actionLabel?.let { label ->
+                    TextButton(
+                        onClick = {
+                            if (guidance.reload) appReloader.reload()
+                            else guidance.actionUrl?.let(uriHandler::openUri)
+                        },
+                        modifier = Modifier.testTag("updateRequiredAction"),
+                    ) { Text(label) }
+                }
                 TextButton(onClick = onExit, modifier = Modifier.testTag("updateRequired")) { Text("OK") }
             },
         )

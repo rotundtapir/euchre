@@ -13,4 +13,11 @@ object ProjectLinks {
 
     /** The public issue tracker — the feedback target for FOSS and web builds (Play uses a mailto). */
     const val ISSUE_TRACKER = "https://github.com/rotundtapir/euchre/issues"
+
+    // Where each Android distribution updates from — the "Update required" dialog's targets. Both
+    // 404 until euchre is actually published, which is fine: the dialog is only reachable from a
+    // deployed server telling this build it is out of date, and there will be no such server until
+    // there is a release for these to point at.
+    const val PLAY_LISTING = "https://play.google.com/store/apps/details?id=io.github.rotundtapir.euchre"
+    const val FDROID_LISTING = "https://f-droid.org/packages/io.github.rotundtapir.euchre/"
 }

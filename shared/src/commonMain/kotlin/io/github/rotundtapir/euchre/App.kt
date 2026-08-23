@@ -63,6 +63,8 @@ fun EuchreApp(
     nextSeed: () -> Long,
     // Shares an online invite link: native share sheet on Android, clipboard copy on web.
     linkSharer: LinkSharer = LinkSharer { _, _ -> false },
+    // Reloads the app in place — real only on web, where it is the "Update required" fix.
+    appReloader: AppReloader = AppReloader { },
     // Injected as a parameter (an explicit dependency) rather than fetched inside the body. The
     // default keeps the wasm-safe explicit initializer — a bare viewModel() uses the reflection
     // factory, which is JVM-only and throws on wasm.
@@ -171,7 +173,11 @@ fun EuchreApp(
         appScreen = AppScreen.GAME.name
     }
 
-    CompositionLocalProvider(LocalAppConfig provides appConfig, LocalLinkSharer provides linkSharer) {
+    CompositionLocalProvider(
+        LocalAppConfig provides appConfig,
+        LocalLinkSharer provides linkSharer,
+        LocalAppReloader provides appReloader,
+    ) {
         // A single HomeScreen call also covers the first frame after newGame() (screen set to GAME,
         // view still null), so its internal state survives the transition instead of being rebuilt.
         val current = view

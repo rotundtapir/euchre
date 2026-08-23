@@ -104,8 +104,10 @@ class OnlineViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    private val _updateRequired = MutableStateFlow<String?>(null)
-    val updateRequired: StateFlow<String?> = _updateRequired.asStateFlow()
+    // The whole message, not just its display string: the dialog needs minAppVersion to say which
+    // version is required, and to tell "you are behind" from "the server is".
+    private val _updateRequired = MutableStateFlow<UpdateRequired?>(null)
+    val updateRequired: StateFlow<UpdateRequired?> = _updateRequired.asStateFlow()
 
     private val _gameOver = MutableStateFlow<GameOver?>(null)
     val gameOver: StateFlow<GameOver?> = _gameOver.asStateFlow()
@@ -408,7 +410,7 @@ class OnlineViewModel(
     private fun handleServerMessage(message: ServerMessage) {
         when (message) {
             is Welcome -> onWelcome(message)
-            is UpdateRequired -> _updateRequired.value = message.message
+            is UpdateRequired -> _updateRequired.value = message
             is AnyLobbyState -> onLobbyState(message.forEuchre())
             is AnyViewUpdate -> {
                 session.offer(message.forEuchre(), snapshot = pendingSnapshot)

@@ -20,6 +20,7 @@ import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
 import io.github.rotundtapir.cardkit.ui.settings.BotSkill
 import io.github.rotundtapir.cardkit.ui.settings.LocalStorageKeyValueStore
 import io.github.rotundtapir.cardkit.ui.theme.CardkitTheme
+import io.github.rotundtapir.euchre.AppReloader
 import io.github.rotundtapir.euchre.EuchreApp
 import io.github.rotundtapir.euchre.KeyValueSettingsRepository
 import io.github.rotundtapir.euchre.ProjectLinks
@@ -113,6 +114,9 @@ fun main() {
                     // token in sessionStorage is the only thing that lets it reclaim one.
                     sessionTokenStore = remember { SessionStorageTokenStore() },
                     linkSharer = remember { BrowserLinkSharer() },
+                    // The only real reloader in the app: on web an out-of-date client is fixed by refetching
+                    // the page, so the "Update required" dialog offers Reload instead of a store link.
+                    appReloader = remember { AppReloader { window.location.reload() } },
                 )
             }
         }
