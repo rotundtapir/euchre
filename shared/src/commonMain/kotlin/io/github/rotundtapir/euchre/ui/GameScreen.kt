@@ -253,6 +253,7 @@ fun GameScreen(
                                 tutorial = tutorial,
                                 anchors = tutorialAnchors,
                                 cardWidth = handCardWidth,
+                                compact = sideBySide,
                             )
                         }
                     }

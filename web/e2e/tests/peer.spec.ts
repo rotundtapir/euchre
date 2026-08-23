@@ -6,6 +6,10 @@ import { expect } from '@playwright/test';
 import { clickByRole } from './helpers';
 
 test('hold a seat as a peer', async ({ page }) => {
+  // A helper, not a test: without a live lobby to join there is nothing to assert, and running it
+  // as part of the suite would fail every time. Skipping keeps `npx playwright test` honest while
+  // leaving it runnable on demand from scripts/screenshots.py's workflow.
+  test.skip(!process.env.JOIN_CODE, 'set JOIN_CODE to hold a seat in an existing lobby');
   const code = process.env.JOIN_CODE!;
   const hold = Number(process.env.PEER_HOLD_MS ?? 90_000);
   test.setTimeout(hold + 60_000);

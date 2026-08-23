@@ -71,16 +71,24 @@ fun ActionArea(
     // Width of the cards in the fan, chosen by the caller from the height the screen actually has.
     // A short screen shrinks the hand rather than letting it fall off the bottom.
     cardWidth: Dp = HAND_CARD_WIDTH,
+    // Short screen: drop the panel's own header. Every dp it costs comes out of the felt, which on a
+    // landscape phone is the difference between seeing the trick and not.
+    compact: Boolean = false,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.fillMaxWidth().tutorialTarget(anchors, PANEL_ANCHOR),
     ) {
-        Text(
-            "You — tricks: ${view.tricksWon[view.seat] ?: 0}" + if (view.seat == view.dealer) " · dealer" else "",
-            fontWeight = if (view.isMyTurn) FontWeight.Bold else FontWeight.Normal,
-        )
-        Spacer(Modifier.height(4.dp))
+        // Pure duplication when space is short: the score bar already carries this side's trick
+        // count, and the trump pill names the maker.
+        if (!compact) {
+            Text(
+                "You — tricks: ${view.tricksWon[view.seat] ?: 0}" +
+                    if (view.seat == view.dealer) " · dealer" else "",
+                fontWeight = if (view.isMyTurn) FontWeight.Bold else FontWeight.Normal,
+            )
+            Spacer(Modifier.height(4.dp))
+        }
         val hand = HandParams(view, sortHand, onToggleSort, tutorial, anchors, cardWidth)
         when {
             !view.isMyTurn -> {
