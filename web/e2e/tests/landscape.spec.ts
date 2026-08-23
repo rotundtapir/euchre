@@ -35,8 +35,13 @@ for (const vp of VIEWPORTS) {
     expect(promptBox, 'the prompt should have a layout box').not.toBeNull();
     expect(promptBox!.y + promptBox!.height).toBeLessThanOrEqual(vp.height);
 
-    // And the player's own cards must be on screen too — the bid buttons surviving while the fan
-    // is clipped is exactly what the bug looked like. During bidding the cards are not tappable, so
+    // The felt has to be on screen too. It is not decoration: it is where the trick lands, so a
+    // layout without it is unplayable the moment bidding ends — and the first version of this test
+    // passed against exactly that, because the prompt and the fan both survived while the felt was
+    // squeezed to nothing.
+    await expect(page.getByText('turn card')).toBeAttached();
+
+    // And the player's own cards must be on screen. During bidding the cards are not tappable, so
     // the mirror exposes them as `img` rather than `button`; the last one is the fan's right edge.
     const card = page.getByRole('img', { name: /^(9|10|J|Q|K|A)[♠♥♦♣]$/ }).last();
     await expect(card).toBeVisible();

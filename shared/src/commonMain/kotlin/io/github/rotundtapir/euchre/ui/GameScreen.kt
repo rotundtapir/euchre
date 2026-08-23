@@ -186,6 +186,7 @@ fun GameScreen(
             // Android recreates on rotation and would reset it anyway; the web resizes in place and
             // would not — and the web is why this change exists.
             var handAreaFloor by remember(maxHeight) { mutableStateOf(0.dp) }
+
             // The felt and the player's own half: one definition used by both arrangements, so a
             // change to either cannot silently apply in only one orientation.
             val board: @Composable ColumnScope.() -> Unit = {
@@ -525,8 +526,13 @@ private val SHORT_SCREEN_HEIGHT = 600.dp
 /** Share of the screen's height the fan may take, before the floor below applies. */
 private const val HAND_HEIGHT_FRACTION = 0.21f
 
-/** Side by side the opponents no longer compete for height, so the fan can have more of it. */
-private const val HAND_HEIGHT_FRACTION_WIDE = 0.30f
+/**
+ * Side by side the fan gets LESS height, not more. The opponents have moved out of the column, but
+ * the prompt and its buttons have not, and they are ~150dp before a single card is drawn — so at a
+ * landscape phone's height a third of the viewport spent on cards leaves the felt with nothing and
+ * it vanishes entirely. (500's layout can afford 0.30 here; euchre's action panel is taller.)
+ */
+private const val HAND_HEIGHT_FRACTION_WIDE = 0.18f
 
 /** The felt's floor — below this a trick stops being readable, so other things give way first. */
 private val MIN_FELT_HEIGHT = 96.dp
@@ -536,3 +542,4 @@ private val SIDE_PANEL_WIDTH = 190.dp
 
 /** The fan never shrinks past this: smaller and the pips stop being readable at arm's length. */
 private val MIN_HAND_CARD_WIDTH = 48.dp
+
