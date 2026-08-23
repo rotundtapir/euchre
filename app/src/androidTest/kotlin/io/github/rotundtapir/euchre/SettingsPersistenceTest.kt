@@ -65,7 +65,7 @@ class SettingsPersistenceTest : EuchreUiTest() {
         rule.onNodeWithTag("setup:stickTheDealer").performScrollTo().performClick()
         rule.waitUntil(STEP_TIMEOUT_MS) { switchIsOn("setup:stickTheDealer") == !before }
 
-        rule.onNodeWithTag("botSetupBack").performScrollTo().performClick()
+        rule.onNodeWithTag("botSetupBack").performClick()
         rule.onNodeWithTag("settingsButton").performClick()
         rule.waitUntil(STEP_TIMEOUT_MS) { switchIsOn("stickTheDealer") == !before }
         rule.onNodeWithText("Done").performClick()

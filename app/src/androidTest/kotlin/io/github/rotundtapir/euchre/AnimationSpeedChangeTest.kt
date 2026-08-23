@@ -85,7 +85,7 @@ class AnimationSpeedChangeTest {
 
         // Start a bots game: at OFF the deal is skipped and the five cards appear instantly.
         rule.onNodeWithText("Play with bots").performClick()
-        rule.onNodeWithTag("startBotGame").performScrollTo().performClick()
+        rule.onNodeWithTag("startBotGame").performClick()
         rule.waitUntil(EuchreUiTest.STEP_TIMEOUT_MS) { cardsInHand() >= HAND_SIZE }
         val before = cardsInHand()
         assertTrue("expected a dealt hand before the speed change", before >= HAND_SIZE)

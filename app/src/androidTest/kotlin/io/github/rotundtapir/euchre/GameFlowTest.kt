@@ -44,7 +44,7 @@ class GameFlowTest : EuchreUiTest() {
         rule.onNodeWithTag("setup:stickTheDealer").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("setup:farmersHand").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("setupAdvancedAi").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("botSetupBack").performScrollTo().performClick()
+        rule.onNodeWithTag("botSetupBack").performClick()
         rule.onNodeWithText("Play with bots").assertIsDisplayed()
     }
 
