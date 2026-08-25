@@ -35,6 +35,15 @@ cardkit-ui machinery, so almost all of it transfers directly.
   after any work.
 - Emulator: `fivehundred_api35`-style AVD, boot flags
   `-no-snapshot-save -gpu swiftshader_indirect -no-boot-anim -no-audio`.
+- **SwiftShader renders even with `-no-window`**, and an animating Compose screen can pin a dozen
+  host cores with it — qemu measured at 1233% CPU on the project laptop, dropping to 100% once the
+  guest screen was turned off. Turning the screen off is only an option for runs that need no
+  pixels (a benchmark, a headless patch job); UI tests and screenshot capture obviously need them.
+  It is worth knowing anyway, because on a laptop that CPU load is a power-draw problem: this box
+  hard-powered-off on 2026-08-25 with three emulators up, on AC, with no OOM involved.
+- **One emulator at a time across the whole machine**, not one per session — `pgrep -c
+  qemu-system-x86` before booting, and announce start/stop in the other sessions' agent-mail
+  inboxes. Four sessions each keeping a per-session limit is exactly how three ended up running.
   Parallel agents must use distinct ports (5554/5556/5558…) AND pin the serial —
   a lock file alone is not enough, adb attaches to whoever owns the device.
 - CI emulator job: use a `pixel_5` (or similar) profile explicitly — the

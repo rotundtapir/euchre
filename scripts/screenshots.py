@@ -10,9 +10,22 @@ the real app through the same intent-extra overrides the connected suite uses
 coordinate, so it survives layout tweaks.
 
 Prerequisites:
-  - an emulator at 1080x2400, ANDROID_SERIAL pointed at it. Note emulator-5554 belongs to the 500
-    session by convention; boot euchre's own on another port:
-      emulator -avd euchre_api35 -port 5556 &   ⇒  export ANDROID_SERIAL=emulator-5556
+  - an emulator at 1080x2400, ANDROID_SERIAL pointed at it. This machine allows ONE emulator at a
+    time across every session, not one each — four sessions each obeying a per-session limit is how
+    it ended up running three and hard-powering-off on 2026-08-25. Check first, and say so in the
+    other sessions' agent-mail inboxes before and after:
+      pgrep -c qemu-system-x86        # must be 0; it counts other sessions' emulators too
+      pgrep -a qemu-system-x86        # says whose, if not
+    Then boot euchre's own AVD (5554 is 500's by convention) inside its own cgroup scope, so a kill
+    takes the emulator rather than the whole terminal session:
+      systemd-run --user --scope -p MemoryHigh=3800M -- \
+        $ANDROID_HOME/emulator/emulator -avd euchre_api35 -port 5556 \
+        -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -no-snapshot &
+      export ANDROID_SERIAL=emulator-5556
+    `-no-window` matters for more than tidiness: SwiftShader still renders every frame, and an
+    animating Compose screen has been measured pinning 12 host cores (qemu at 1233% CPU) on this
+    box. That is a power-draw problem as much as a CPU one. It does NOT mean turning the screen
+    off here — these shots need pixels — but do kill the AVD the moment the captures are done.
   - the foss debug APK installed: ./gradlew :app:installFossDebug
     (foss, not play: the play flavour renders an ad slot that must not appear in a listing image)
   - for the online shots only, a local dev server. Port 8081 is euchre's convention — 8080 is
