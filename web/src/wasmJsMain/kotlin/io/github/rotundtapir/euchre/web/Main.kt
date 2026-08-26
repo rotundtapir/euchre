@@ -101,6 +101,9 @@ fun main() {
                         flavor = AppDistribution.WEB,
                         commit = AppBuildInfo.COMMIT,
                     ),
+                    // Online lobbies too: a dev-mode server honours it, so the e2e suite can have a
+                    // reproducible online hand instead of whatever the server's RNG deals.
+                    lobbySeedOverride = overrides.seed,
                     // A ?seed= parameter pins every new game to it, which is what the e2e suite wants.
                     nextSeed = { overrides.seed ?: Random.nextLong() },
                     animationSpeedOverride = overrides.animationSpeed,

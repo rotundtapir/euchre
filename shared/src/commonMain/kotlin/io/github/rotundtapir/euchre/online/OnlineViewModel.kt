@@ -289,6 +289,11 @@ class OnlineViewModel(
         houseRules: EuchreHouseRules,
         turnTimeoutSeconds: Int,
         idleDisbandMinutes: Int,
+        // Pins the server's deal. Honoured only in dev mode, and null in every real build — it
+        // exists so an automated test can have a reproducible online hand, which is otherwise
+        // impossible: the server deals from its own RNG, so an online e2e is at the mercy of
+        // whatever phase the deal happens to reach.
+        seed: Long? = null,
     ) {
         _errorMessage.value = null
         send(
@@ -300,6 +305,7 @@ class OnlineViewModel(
                 farmersHand = houseRules.farmersHand,
                 turnTimeoutSeconds = turnTimeoutSeconds,
                 idleDisbandMinutes = idleDisbandMinutes,
+                seed = seed,
             ),
         )
     }

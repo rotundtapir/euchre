@@ -73,6 +73,10 @@ fun EuchreApp(
     // someone's saved settings. (A pinned seed is one of these too, folded into [nextSeed] by the
     // entry point — one seam for "where does a new game's seed come from", not two.)
     animationSpeedOverride: AnimationSpeed? = null,
+    // Test override: pins the SERVER's deal for an online lobby this build creates. Separate from
+    // nextSeed, which pins local games — nextSeed falls back to a random value when unset, and an
+    // online lobby needs to send nothing at all in that case so the server deals as usual.
+    lobbySeedOverride: Long? = null,
     soundVolumeOverride: Float? = null,
     botSkillOverride: BotSkill? = null,
     aiBudgetMillisOverride: Long? = null,
@@ -184,6 +188,7 @@ fun EuchreApp(
         when {
             appScreen == AppScreen.ONLINE.name -> OnlineFlow(
                 vm = onlineVm,
+                lobbySeed = lobbySeedOverride,
                 settings = settingsControls,
                 monetization = monetization,
                 onExit = {

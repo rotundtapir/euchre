@@ -65,6 +65,8 @@ fun OnlineFlow(
     monetization: Monetization,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Test override only: pins the server's deal (dev-mode servers honour it, real ones ignore it). */
+    lobbySeed: Long? = null,
 ) {
     val screen by vm.screen.collectAsState()
     val error by vm.errorMessage.collectAsState()
@@ -153,7 +155,7 @@ fun OnlineFlow(
             OnlineScreen.CREATE -> CreateLobbyScreen(
                 initialRules = settings.houseRules,
                 onCreate = { houseRules, turnTimeout, idle ->
-                    vm.createLobby(settings.playerName, houseRules, turnTimeout, idle)
+                    vm.createLobby(settings.playerName, houseRules, turnTimeout, idle, lobbySeed)
                 },
                 onBack = vm::backToEntry,
             )

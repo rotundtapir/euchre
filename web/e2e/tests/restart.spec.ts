@@ -18,7 +18,11 @@ import { awaitAppBoot, clickByRole } from './helpers';
 // with a private DATA_DIR, so the restart disturbs nothing else.
 const PORT = 8791;
 const SERVER_BIN = path.resolve(__dirname, '../../../server/build/install/server/bin/server');
-const FIXTURE = `/euchre/?serverUrl=ws://localhost:${PORT}&playerName=Tester&animationSpeed=OFF&soundVolume=0`;
+// seed=42 pins the SERVER's deal too (dev-mode servers honour CreateLobby.seed), so the state this
+// test lands in after the restart is the same every run. Without it the server dealt from its own
+// RNG and the post-restart assertions were at the mercy of whichever phase the hand happened to
+// reach — which is what made this the suite's one unreliable test, in CI more than locally.
+const FIXTURE = `/euchre/?serverUrl=ws://localhost:${PORT}&playerName=Tester&animationSpeed=OFF&soundVolume=0&seed=42`;
 
 /** Card labels as cardkit's PlayingCard exposes them (contentDescription = card.label). */
 const CARD_NAME = /^(?:9|10|J|Q|K|A)[♠♥♦♣]$|^Joker$/;
