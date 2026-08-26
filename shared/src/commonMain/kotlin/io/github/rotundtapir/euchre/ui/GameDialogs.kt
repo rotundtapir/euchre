@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception
 package io.github.rotundtapir.euchre.ui
 
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -147,22 +148,34 @@ private fun BannerDialog(
     val headerColor = if (good) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
     val onHeaderColor = if (good) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onError
     Dialog(onDismissRequest = onDismissRequest) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            tonalElevation = 6.dp,
-            modifier = modifier,
-        ) {
-            Column {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(headerColor)
-                        .padding(horizontal = 24.dp, vertical = bannerPadding),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) { banner(onHeaderColor) }
-                body()
+        // Never taller than the window. Without this the dialog takes its content's height and the
+        // bottom is simply cut off — and the bottom is where every one of these dialogs puts its
+        // only button. GameOverDialog is the dangerous case: its onDismissRequest is deliberately
+        // empty, so back and outside-tap do nothing, and a clipped "Back to menu" leaves a finished
+        // game with no exit but killing the app. A landscape phone (~390dp) is short enough to do
+        // it: banner, score sheet and button together exceed that comfortably.
+        BoxWithConstraints {
+            val maxDialogHeight = maxHeight - DIALOG_WINDOW_MARGIN
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                tonalElevation = 6.dp,
+                modifier = modifier.heightIn(max = maxDialogHeight),
+            ) {
+                Column {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(headerColor)
+                            .padding(horizontal = 24.dp, vertical = bannerPadding),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) { banner(onHeaderColor) }
+                    // The body scrolls rather than the whole dialog: the banner says which dialog
+                    // this is and the body's last element is the action, so scrolling the lot would
+                    // just move the clipping problem rather than remove it.
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) { body() }
+                }
             }
         }
     }
@@ -328,3 +341,9 @@ fun LeaveGameDialog(onConfirm: () -> Unit, onDismiss: () -> Unit, body: String? 
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
+
+/**
+ * Breathing room left around a dialog so it reads as a dialog rather than a full screen. Also keeps
+ * the scrim visible at the edges, which is the affordance that says the thing behind is still there.
+ */
+private val DIALOG_WINDOW_MARGIN = 48.dp
