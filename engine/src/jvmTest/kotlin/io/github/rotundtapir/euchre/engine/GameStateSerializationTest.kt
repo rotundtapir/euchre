@@ -30,10 +30,14 @@ class GameStateSerializationTest {
         val random = Random(5)
         val phasesSeen = mutableSetOf<EuchrePhase>()
         // Every state the match passes through, including the terminal one, must round-trip.
-        driveRandomly(rules, rules.newGame(5), random) { state ->
+        // Named, not trailing: driveRandomly's last parameter is `construct`, not `onState`, so a
+        // trailing lambda silently binds to the wrong one. It compiled as a trailing lambda until
+        // cardkit fa7b0b3 added `construct` after `onState` — a source-compatible-looking change
+        // that moves what a trailing lambda means.
+        driveRandomly(rules, rules.newGame(5), random, onState = { state ->
             phasesSeen += state.phase
             assertEquals(state, roundTrip(state))
-        }
+        })
         assertTrue(EuchrePhase.PLAY in phasesSeen && EuchrePhase.COMPLETE in phasesSeen)
     }
 
