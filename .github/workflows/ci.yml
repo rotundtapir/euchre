@@ -184,7 +184,12 @@ jobs:
           if-no-files-found: ignore
 
   release:
-    needs: build
+    # Gated on android-e2e as well as build: every job below ships something a user gets
+    # (a release APK, the hosted web build, the server image), and the connected suite is the
+    # only gate that exercises the app on a device. Needing `build` alone meant a red emulator
+    # run could not stop a release — it only ever passed because the jobs happened to start
+    # after it went green. Mirrors rotundtapir/500#64.
+    needs: [build, android-e2e]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
@@ -294,7 +299,8 @@ jobs:
   # release, so the hosted game tracks releases rather than every push to main.
   # One-time repo setting: Settings -> Pages -> Source = "GitHub Actions".
   deploy-web:
-    needs: build
+    # Gated on android-e2e too, for the reason given on `release` above.
+    needs: [build, android-e2e]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -335,7 +341,8 @@ jobs:
   # Build the server image and push it to GHCR on a release tag. The dist is built with Gradle (cache
   # reuse) then copied into a thin image; multi-arch so self-hosters on ARM (Raspberry Pi) can pull.
   publish-server-image:
-    needs: build
+    # Gated on android-e2e too, for the reason given on `release` above.
+    needs: [build, android-e2e]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
