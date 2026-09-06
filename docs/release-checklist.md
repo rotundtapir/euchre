@@ -26,8 +26,12 @@ One-time setup and the release gate, in order. Mirrors 500's release process.
       > **Jack:** `~/keystores/` needs an OFFLINE backup — the key is unrecoverable and
       > unrotatable once an APK ships. Move the two password files into your password manager,
       > after which the plaintext copies can be deleted (CI has its own copies in the secrets).
-- [ ] **Deploy secrets** — `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_HOST`, `DEPLOY_PORT`,
-      for the `deploy-server` job. Three things learned from 500's setup rather than rediscovered:
+- [x] **Deploy secrets** — set 2026-09-06 and proven by v0.2.0's green `deploy-server`.
+      `DEPLOY_HOST` is the VPS IP, `DEPLOY_PORT` its non-standard SSH port (both in `~/.ssh/config`),
+      `DEPLOY_KNOWN_HOSTS` is `ssh-keyscan -p <port> <ip>` output verbatim, and `DEPLOY_SSH_KEY` is
+      euchre's **own** key (`~/.ssh/euchre-ci-deploy`), authorised on the VPS as `restrict,pty` —
+      verified by a port-forward attempt being refused with `administratively prohibited`. The
+      reasoning, kept because the next repo on this box will face it:
 
       - **Its own key**, not 500's. Both authorise `root`, so this is not about privilege — it is
         that euchre's key can be revoked after a leak without breaking 500's deploys mid-incident,
@@ -42,6 +46,15 @@ One-time setup and the release gate, in order. Mirrors 500's release process.
         an IP (or vice versa) yields a host-key mismatch on the first deploy. A non-22 port makes
         keyscan emit `[host]:port` lines, which is what ssh then expects to match.
 
+- [x] **fail2ban jail** — installed on the VPS 2026-09-06. `/etc/fail2ban/filter.d/euchre-server.conf`
+      matches the `ABUSE event=… ip=…` lines the server already emits;
+      `/etc/fail2ban/jail.d/euchre.local` reads the container's journald stream
+      (`journalmatch = CONTAINER_NAME=euchre-server`) and bans in the `DOCKER-USER` chain, because
+      Docker's forwarded packets bypass `INPUT` and a default ban is counted without being enforced.
+      Its own jail rather than a second match on 500's, so one game's noisy client cannot ban the
+      other's players. Known-answer tested before enabling (`fail2ban-regex` on a real ABUSE line:
+      1 matched, 0 missed) — the filter and both traps are documented in `docs/self-hosting.md` for
+      self-hosters, without this deployment's thresholds.
 - [x] **Launcher icon** — a generated placeholder set is in place (adaptive `mipmap-anydpi-v26`
       plus every density). Deliberately provisional; final artwork lands with the store release.
 
@@ -74,11 +87,18 @@ in for **release builds only** — never point debug builds at live units (inval
 - [ ] Permission allowlist: `aapt dump permissions` on the FOSS APK shows `INTERNET` and **nothing
       else**. CI gates this; re-check by hand whenever the manifest changes, and update PRIVACY.md in
       the same change if the list grows.
-- [ ] **First tag only:** make `ghcr.io/rotundtapir/euchre-server` public (package → Settings →
-      Change visibility). The package does not exist until that first tag pushes it, and until it is
-      public the VPS's `docker compose pull` fails with a 403/manifest-unknown that reads like a
-      missing tag rather than a permissions problem. It persists across later pushes; this is a
-      one-time step. (Same trap 500 hit — see its runbook.)
+- [x] **GHCR visibility** — nothing to do while the repo is public. `ghcr.io/rotundtapir/euchre-server`
+      was created **public** by the first `v*` tag (v0.2.0, 2026-09-06) and pulled anonymously by the
+      VPS with no credentials, so `deploy-server` went green first time. This checklist previously
+      said a manual visibility flip was required; that was wrong for a public repo, and predicting a
+      failure that did not happen is its own kind of noise.
+      **It becomes real if euchre's repo ever goes private**, or if a package is created some other
+      way: the VPS has no `~/.docker/config.json`, so it can only pull public images, and a private
+      one fails with a 403/manifest-unknown that reads like a missing tag rather than a permissions
+      problem. Check with:
+      `curl -s -H "Authorization: Bearer $(curl -s 'https://ghcr.io/token?scope=repository:rotundtapir/euchre-server:pull' | jq -r .token)" https://ghcr.io/v2/rotundtapir/euchre-server/tags/list`
+      — 200 means the VPS can pull it. (A bare unauthenticated `curl` to `/v2/` returns 401 even for
+      public images, so it is not a usable test.)
 - [ ] Server: the `v*` tag published `ghcr.io/rotundtapir/euchre-server` and the deploy job reported
       `/health` ok on the euchre hostname. If this release changed `RoomSnapshot.CURRENT_VERSION`,
       drain the server **first** (`POST /admin/drain`, wait for `activeGames:0`) so in-flight games
