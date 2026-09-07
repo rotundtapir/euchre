@@ -36,6 +36,7 @@ import io.github.rotundtapir.cardkit.core.Card
 import io.github.rotundtapir.cardkit.core.Seat
 import io.github.rotundtapir.cardkit.ui.CardHand
 import io.github.rotundtapir.cardkit.ui.SuitText
+import io.github.rotundtapir.cardkit.ui.felt.DealerButton
 import io.github.rotundtapir.cardkit.ui.felt.OnBackgroundOutlinedButton
 import io.github.rotundtapir.cardkit.ui.felt.cardSurfaceButtonColors
 import io.github.rotundtapir.cardkit.ui.felt.feltTonalButtonColors

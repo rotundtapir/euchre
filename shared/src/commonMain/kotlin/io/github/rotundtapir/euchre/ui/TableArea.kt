@@ -7,7 +7,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -23,7 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -37,7 +35,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -60,6 +57,9 @@ import io.github.rotundtapir.cardkit.ui.deal.OpponentPile
 import io.github.rotundtapir.cardkit.ui.deal.ShufflingDeck
 import io.github.rotundtapir.cardkit.ui.deal.dealAnchor
 import io.github.rotundtapir.cardkit.ui.felt.CardSurfaceWhite
+import io.github.rotundtapir.cardkit.ui.felt.DealerButton
+import io.github.rotundtapir.cardkit.ui.felt.DealerButtonSize
+import io.github.rotundtapir.cardkit.ui.felt.DealerButtonSizeCompact
 import io.github.rotundtapir.cardkit.ui.felt.NeutralInkOnCardSurface
 import io.github.rotundtapir.cardkit.ui.felt.OnBackgroundIconButton
 import io.github.rotundtapir.cardkit.ui.settings.AnimationSpeed
@@ -303,7 +303,7 @@ private fun OpponentStatus(
             // grow a few dp and shove the felt below it around once a hand.
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = if (compact) DEALER_BUTTON_SIZE_COMPACT else DEALER_BUTTON_SIZE),
+                .heightIn(min = if (compact) DealerButtonSizeCompact else DealerButtonSize),
         ) {
             Text(
                 seatLabel(view.seat, botNames, seat),
@@ -318,7 +318,7 @@ private fun OpponentStatus(
             )
             if (seat == view.dealer) {
                 Spacer(Modifier.width(4.dp))
-                DealerButton(compact = compact)
+                DealerButton(size = if (compact) DealerButtonSizeCompact else DealerButtonSize)
             }
         }
         // The partner marker is the first thing to go when height is short: the seat's name is
@@ -653,40 +653,6 @@ private val MIN_TRICK_CARD = 56.dp
 private val MAX_TRICK_CARD = 96.dp
 
 /** The face-down pile drawn beside each opponent, and the row height it claims. */
-/**
- * The dealer button: the white puck that sits in front of whoever deals, as at a real table. It
- * replaced a " (D)" suffix on the seat name, which read as part of the name and was missed.
- * Deliberately card-coloured rather than themed — it is an object on the felt, not a label.
- */
-@Composable
-fun DealerButton(modifier: Modifier = Modifier, compact: Boolean = false) {
-    val size = if (compact) DEALER_BUTTON_SIZE_COMPACT else DEALER_BUTTON_SIZE
-    Surface(
-        shape = CircleShape,
-        color = CardSurfaceWhite,
-        contentColor = NeutralInkOnCardSurface,
-        border = BorderStroke(1.dp, NeutralInkOnCardSurface.copy(alpha = 0.45f)),
-        modifier = modifier.size(size).testTag(DEALER_BUTTON_TAG),
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                "D",
-                fontWeight = FontWeight.Bold,
-                // The glyph is sized off the puck so both variants stay legible; the default
-                // labelSmall left the compact one a grey smudge.
-                fontSize = with(LocalDensity.current) { (size * 0.62f).toSp() },
-                lineHeight = with(LocalDensity.current) { (size * 0.62f).toSp() },
-            )
-        }
-    }
-}
-
-/** Lets a test find the dealer marker without knowing which seat holds it. */
-const val DEALER_BUTTON_TAG = "dealerButton"
-
-private val DEALER_BUTTON_SIZE = 26.dp
-private val DEALER_BUTTON_SIZE_COMPACT = 22.dp
-
 private val OPPONENT_PILE_WIDTH = 44.dp
 private val OPPONENT_PILE_HEIGHT = OPPONENT_PILE_WIDTH * CardAspectRatio + 8.dp
 

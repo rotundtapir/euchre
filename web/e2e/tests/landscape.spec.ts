@@ -52,8 +52,9 @@ for (const vp of VIEWPORTS) {
     // The dealer button. The human deals the seed-42 hand, and the marker used to live in the
     // panel header — which is exactly what the short-screen layout drops, so landscape lost the
     // one cue telling you the deal (and the bury that follows) is yours. It now rides the sort
-    // toggle's row, which both layouts keep.
-    const dealerButton = page.getByText('D', { exact: true });
+    // toggle's row, which both layouts keep. cardkit's puck merges its semantics under the
+    // description "Dealer" (a bare "D" is meaningless to a screen reader), so that is the name.
+    const dealerButton = page.getByText('Dealer', { exact: true }).or(page.getByLabel('Dealer', { exact: true })).first();
     await expect(dealerButton).toBeVisible();
     const dealerBox = await dealerButton.boundingBox();
     expect(dealerBox, 'the dealer button should have a layout box').not.toBeNull();

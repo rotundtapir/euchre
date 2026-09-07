@@ -56,8 +56,8 @@ One-time setup and the release gate, in order. Mirrors 500's release process.
       1 matched, 0 missed) — the filter and both traps are documented in `docs/self-hosting.md` for
       self-hosters, without this deployment's thresholds.
 - [x] **Launcher icon** — the fanned Q♠ K♠ A♠ J♣ J♠ over felt with a gold EUCHRE plaque, in 500's
-      icon style. Rendered by `scripts/icon.py` (adaptive layers incl. a monochrome mask, legacy
-      mipmaps, the 512px fastlane icon); edit the script, not the PNGs.
+      icon style. Rendered by `python3 cardkit/tools/icon.py --preset euchre` (adaptive layers incl.
+      a monochrome mask, legacy mipmaps, the 512px fastlane icon); edit the preset, not the PNGs.
 
 ### Deferred past v0.1.0 — dummy values are intentional
 
