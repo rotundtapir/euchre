@@ -55,8 +55,9 @@ One-time setup and the release gate, in order. Mirrors 500's release process.
       other's players. Known-answer tested before enabling (`fail2ban-regex` on a real ABUSE line:
       1 matched, 0 missed) — the filter and both traps are documented in `docs/self-hosting.md` for
       self-hosters, without this deployment's thresholds.
-- [x] **Launcher icon** — a generated placeholder set is in place (adaptive `mipmap-anydpi-v26`
-      plus every density). Deliberately provisional; final artwork lands with the store release.
+- [x] **Launcher icon** — the fanned Q♠ K♠ A♠ J♣ J♠ over felt with a gold EUCHRE plaque, in 500's
+      icon style. Rendered by `scripts/icon.py` (adaptive layers incl. a monochrome mask, legacy
+      mipmaps, the 512px fastlane icon); edit the script, not the PNGs.
 
 ### Deferred past v0.1.0 — dummy values are intentional
 
@@ -66,7 +67,7 @@ compiles and runs, but is **not** published, so its monetization ids stay placeh
 - `app/src/play/AndroidManifest.xml` carries Google's **sample** AdMob APPLICATION_ID.
 - The play `MonetizationProvider` uses Google's **test** ad units for every build type.
 - `remove_ads` refers to a Play Console product that does not exist yet.
-- **Store artwork**: the launcher icon is a generated placeholder, and there is no feature graphic.
+- **Store artwork**: the launcher icon is final; there is no feature graphic yet.
   Phone screenshots now exist — five, captured from the real app by `scripts/screenshots.py`, two of
   them showing genuine cross-play — so re-shooting after a UI change is a scripted step rather than a
   manual one. The fastlane *text* metadata (title, descriptions, changelog) is written and current.
