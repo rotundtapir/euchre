@@ -237,6 +237,10 @@ fun GameScreen(
                             // Matches the fan it becomes, or the row would overflow a short screen
                             // and then jump size the moment the deal finished.
                             cardWidth = handCardWidth,
+                            // Same reason, in the other axis: cardkit's default step is 0.55, and
+                            // the 0.05 difference showed as the whole fan snapping tighter at the
+                            // flip.
+                            exposure = HAND_EXPOSURE,
                         )
                         // A fresh hand whose shuffle has not run yet — held behind a result dialog,
                         // or simply not started: keep the cards and the buttons off screen.

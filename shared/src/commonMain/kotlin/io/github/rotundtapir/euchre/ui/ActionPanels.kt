@@ -414,7 +414,7 @@ private data class HandParams(
 /** The fan's card width on a screen tall enough not to need scaling. */
 internal val HAND_CARD_WIDTH = 84.dp
 
-private const val HAND_EXPOSURE = 0.5f
+internal const val HAND_EXPOSURE = 0.5f
 
 /** Tags the human's fan, so tests can scope queries to the cards actually in hand. */
 const val HUMAN_HAND_TAG = "humanHand"
