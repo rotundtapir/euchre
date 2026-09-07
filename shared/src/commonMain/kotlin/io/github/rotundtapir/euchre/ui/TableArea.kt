@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -20,7 +21,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -34,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -267,15 +271,27 @@ private fun OpponentStatus(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.tutorialTarget(anchors, seatAnchor(seat)),
     ) {
-        Text(
-            seatLabel(view.seat, botNames, seat) + if (seat == view.dealer) " (D)" else "",
-            color = nameColor,
-            fontWeight = if (view.toAct == seat || isPartner) FontWeight.Bold else FontWeight.Normal,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
-        )
+        ) {
+            Text(
+                seatLabel(view.seat, botNames, seat),
+                color = nameColor,
+                fontWeight = if (view.toAct == seat || isPartner) FontWeight.Bold else FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                // fill = false so a short name does not push the button off the end of the row:
+                // the pair centres together, and only a long name gets ellipsised.
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            if (seat == view.dealer) {
+                Spacer(Modifier.width(4.dp))
+                DealerButton(compact = compact)
+            }
+        }
         // The partner marker is the first thing to go when height is short: the seat's name is
         // already in the team colour, so the information survives without the line.
         if (isPartner && !compact) {
@@ -605,6 +621,40 @@ private val MIN_TRICK_CARD = 56.dp
 private val MAX_TRICK_CARD = 96.dp
 
 /** The face-down pile drawn beside each opponent, and the row height it claims. */
+/**
+ * The dealer button: the white puck that sits in front of whoever deals, as at a real table. It
+ * replaced a " (D)" suffix on the seat name, which read as part of the name and was missed.
+ * Deliberately card-coloured rather than themed — it is an object on the felt, not a label.
+ */
+@Composable
+fun DealerButton(modifier: Modifier = Modifier, compact: Boolean = false) {
+    val size = if (compact) DEALER_BUTTON_SIZE_COMPACT else DEALER_BUTTON_SIZE
+    Surface(
+        shape = CircleShape,
+        color = CardSurfaceWhite,
+        contentColor = NeutralInkOnCardSurface,
+        border = BorderStroke(1.dp, NeutralInkOnCardSurface.copy(alpha = 0.45f)),
+        modifier = modifier.size(size).testTag(DEALER_BUTTON_TAG),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                "D",
+                fontWeight = FontWeight.Bold,
+                // The glyph is sized off the puck so both variants stay legible; the default
+                // labelSmall left the compact one a grey smudge.
+                fontSize = with(LocalDensity.current) { (size * 0.62f).toSp() },
+                lineHeight = with(LocalDensity.current) { (size * 0.62f).toSp() },
+            )
+        }
+    }
+}
+
+/** Lets a test find the dealer marker without knowing which seat holds it. */
+const val DEALER_BUTTON_TAG = "dealerButton"
+
+private val DEALER_BUTTON_SIZE = 20.dp
+private val DEALER_BUTTON_SIZE_COMPACT = 16.dp
+
 private val OPPONENT_PILE_WIDTH = 44.dp
 private val OPPONENT_PILE_HEIGHT = OPPONENT_PILE_WIDTH * CardAspectRatio + 8.dp
 

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -83,8 +84,7 @@ fun ActionArea(
         // count, and the trump pill names the maker.
         if (!compact) {
             Text(
-                "You — tricks: ${view.tricksWon[view.seat] ?: 0}" +
-                    if (view.seat == view.dealer) " · dealer" else "",
+                "You — tricks: ${view.tricksWon[view.seat] ?: 0}",
                 fontWeight = if (view.isMyTurn) FontWeight.Bold else FontWeight.Normal,
             )
             Spacer(Modifier.height(4.dp))
@@ -446,18 +446,30 @@ private fun HumanHand(
 ) {
     val view = hand.view
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-        OutlinedButton(
-            onClick = hand.onToggleSort,
-            // Sizing stays here (a compact chip above the fan); only the colours are shared.
-            colors = feltTonalButtonColors(),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)),
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 2.dp),
-            modifier = Modifier.height(30.dp).testTag("sortToggle"),
+        // The dealer button sits beside the sort toggle rather than in the panel header: the
+        // header is the first thing a short screen drops, and "you are dealing" is exactly the
+        // fact a landscape player still needs. Riding an existing row also costs no height.
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                if (hand.sortHand) "Sorted ⇄" else "Deal order ⇄",
-                style = MaterialTheme.typography.labelMedium,
-            )
+            if (view.seat == view.dealer) {
+                DealerButton()
+                Spacer(Modifier.width(6.dp))
+            }
+            OutlinedButton(
+                onClick = hand.onToggleSort,
+                // Sizing stays here (a compact chip above the fan); only the colours are shared.
+                colors = feltTonalButtonColors(),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 2.dp),
+                modifier = Modifier.height(30.dp).testTag("sortToggle"),
+            ) {
+                Text(
+                    if (hand.sortHand) "Sorted ⇄" else "Deal order ⇄",
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
         }
         val cards = rememberDisplayHand(view, hand.sortHand)
         Box(

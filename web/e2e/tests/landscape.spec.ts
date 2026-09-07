@@ -48,5 +48,15 @@ for (const vp of VIEWPORTS) {
     const cardBox = await card.boundingBox();
     expect(cardBox, 'a hand card should have a layout box').not.toBeNull();
     expect(cardBox!.y + cardBox!.height).toBeLessThanOrEqual(vp.height);
+
+    // The dealer button. The human deals the seed-42 hand, and the marker used to live in the
+    // panel header — which is exactly what the short-screen layout drops, so landscape lost the
+    // one cue telling you the deal (and the bury that follows) is yours. It now rides the sort
+    // toggle's row, which both layouts keep.
+    const dealerButton = page.getByText('D', { exact: true });
+    await expect(dealerButton).toBeVisible();
+    const dealerBox = await dealerButton.boundingBox();
+    expect(dealerBox, 'the dealer button should have a layout box').not.toBeNull();
+    expect(dealerBox!.y + dealerBox!.height).toBeLessThanOrEqual(vp.height);
   });
 }
