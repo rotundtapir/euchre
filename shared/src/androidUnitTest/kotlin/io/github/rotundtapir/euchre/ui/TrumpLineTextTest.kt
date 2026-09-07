@@ -68,6 +68,23 @@ class TrumpLineTextTest {
     }
 
     @Test
+    fun `the compact wording drops the labels but never the facts`() {
+        // Landscape has a 190dp column for this pill. The short form exists to fit it on one line,
+        // so it may lose words — "Bidding", "maker:" — but not the suit, the maker or "alone".
+        val bidding = trumpLineText(view(), botNames, upcardRevealed = true, compact = true)
+        assertEquals("${Suit.SPADES.symbol} turned up", bidding)
+
+        val makers = Makers(maker = Seat(1), trump = Suit.HEARTS, orderedUp = true, alone = true)
+        val made = trumpLineText(view(EuchrePhase.PLAY, makers), botNames, upcardRevealed = true, compact = true)
+        assertTrue("Ada" in made && Suit.HEARTS.symbol in made && "alone" in made, "was '$made'")
+        assertFalse("maker:" in made, "the label is what compact drops, was '$made'")
+
+        // Still withheld while the card is face down: shortening must not open the leak the full
+        // wording is careful about.
+        assertEquals("Bidding", trumpLineText(view(), botNames, upcardRevealed = false, compact = true))
+    }
+
+    @Test
     fun `a made contract is announced whatever the deal is doing`() {
         // Trump being made is public by definition — someone said it out loud — so unlike the turn
         // card it does not wait on the animation.

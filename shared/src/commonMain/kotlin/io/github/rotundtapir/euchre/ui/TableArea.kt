@@ -142,8 +142,12 @@ fun TrumpLine(
     botNames: Map<Seat, String>,
     upcardRevealed: Boolean,
     modifier: Modifier = Modifier,
+    // Landscape puts this pill in a 190dp side column, where the full wording wraps into a ragged
+    // two-line lozenge. Compact shortens the words and squares the pill off so a wrap still reads
+    // as a label.
+    compact: Boolean = false,
 ) {
-    val text = trumpLineText(view, botNames, upcardRevealed)
+    val text = trumpLineText(view, botNames, upcardRevealed, compact = compact)
     if (text.isBlank()) {
         // Keep the row's height stable between phases so the felt below never jumps — including the
         // pill's own vertical padding, or its arrival would shift everything under it.
@@ -151,26 +155,45 @@ fun TrumpLine(
     } else {
         // A card-white pill: the line carries suit symbols whose black glyphs sink into the felt.
         Surface(
-            shape = RoundedCornerShape(50),
+            shape = if (compact) RoundedCornerShape(PILL_CORNER_COMPACT) else RoundedCornerShape(50),
             color = CardSurfaceWhite,
             contentColor = NeutralInkOnCardSurface,
-            modifier = modifier,
+            // Filling the column centres a wrapped line instead of leaving it ragged against the
+            // left edge, and stops the pill's width jumping about as the wording changes.
+            modifier = if (compact) modifier.fillMaxWidth() else modifier,
         ) {
-            SuitText(text, modifier = Modifier.padding(horizontal = 12.dp, vertical = PILL_PADDING_V))
+            SuitText(
+                text,
+                textAlign = if (compact) TextAlign.Center else null,
+                // Factory-style rather than `.then(if (…) …)`: that chain crashes lint's
+                // SuspiciousModifierThenDetector (the gotcha inherited from 500).
+                modifier = Modifier
+                    .fillMaxWidthWhen(compact)
+                    .padding(horizontal = 12.dp, vertical = PILL_PADDING_V),
+            )
         }
     }
 }
+
+/** `fillMaxWidth()` only when [enabled] — see the SuspiciousModifierThenDetector note above. */
+private fun Modifier.fillMaxWidthWhen(enabled: Boolean): Modifier =
+    if (enabled) fillMaxWidth() else this
 
 /** What the trump line says; pure, so the reveal rule is unit-testable. */
 internal fun trumpLineText(
     view: EuchrePlayerView,
     botNames: Map<Seat, String>,
     upcardRevealed: Boolean,
+    // Same facts, fewer words, for the narrow side column: the "maker:" and "Bidding — " labels go,
+    // since the panel beside the pill already says which is happening.
+    compact: Boolean = false,
 ): String {
     val makers = view.makers
     if (makers != null) {
         return buildString {
-            append("Trump: ${makers.trump.symbol} · maker: ${seatLabel(view.seat, botNames, makers.maker)}")
+            append("Trump: ${makers.trump.symbol}")
+            append(if (compact) " · " else " · maker: ")
+            append(seatLabel(view.seat, botNames, makers.maker))
             if (makers.alone) append(" (alone)")
             makers.loneDefender?.let { append(" · ${seatLabel(view.seat, botNames, it)} defends alone") }
         }
@@ -180,9 +203,10 @@ internal fun trumpLineText(
     // the card is finally turned over, nudging the whole table down.
     if (!upcardRevealed) return "Bidding"
     val upcardName = view.upcardSuit?.symbol ?: view.upcard?.label ?: ""
+    val prefix = if (compact) "" else "Bidding — "
     return when (view.phase) {
-        EuchrePhase.BIDDING_ROUND_2 -> "Bidding — $upcardName turned down"
-        EuchrePhase.BIDDING_ROUND_1, EuchrePhase.FARMERS -> "Bidding — $upcardName turned up"
+        EuchrePhase.BIDDING_ROUND_2 -> "$prefix$upcardName turned down"
+        EuchrePhase.BIDDING_ROUND_1, EuchrePhase.FARMERS -> "$prefix$upcardName turned up"
         else -> ""
     }
 }
@@ -274,7 +298,12 @@ private fun OpponentStatus(
         Row(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
+            // The puck is taller than the name it sits beside, so its height is held for EVERY
+            // seat: the dealer moves one seat per hand, and without this the seat holding it would
+            // grow a few dp and shove the felt below it around once a hand.
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = if (compact) DEALER_BUTTON_SIZE_COMPACT else DEALER_BUTTON_SIZE),
         ) {
             Text(
                 seatLabel(view.seat, botNames, seat),
@@ -608,6 +637,9 @@ private fun TrickSlot(
 /** The trump pill's vertical padding, shared with the blank stand-in that holds its height. */
 private val PILL_PADDING_V = 3.dp
 
+/** Squarer than the stadium pill: a wrapped two-line lozenge looks like a blob, a card does not. */
+private val PILL_CORNER_COMPACT = 12.dp
+
 /** Tags the felt, so tests can assert it holds its place as the phases change. */
 const val FELT_TAG = "felt"
 
@@ -652,8 +684,8 @@ fun DealerButton(modifier: Modifier = Modifier, compact: Boolean = false) {
 /** Lets a test find the dealer marker without knowing which seat holds it. */
 const val DEALER_BUTTON_TAG = "dealerButton"
 
-private val DEALER_BUTTON_SIZE = 20.dp
-private val DEALER_BUTTON_SIZE_COMPACT = 16.dp
+private val DEALER_BUTTON_SIZE = 26.dp
+private val DEALER_BUTTON_SIZE_COMPACT = 22.dp
 
 private val OPPONENT_PILE_WIDTH = 44.dp
 private val OPPONENT_PILE_HEIGHT = OPPONENT_PILE_WIDTH * CardAspectRatio + 8.dp

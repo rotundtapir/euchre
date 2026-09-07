@@ -8,6 +8,10 @@ export default defineConfig({
   testDir: './tests',
   timeout: 90_000,
   retries: process.env.CI ? 1 : 0,
+  // Two workers locally. The default is one per core, and on the 16-core/14GiB dev box that meant
+  // ~8 Chrome instances alongside whatever Gradle daemons the preceding build left resident — a
+  // combination systemd-oomd killed the whole session scope for. CI runners get the default.
+  workers: process.env.CI ? undefined : 2,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: 'http://localhost:9600',

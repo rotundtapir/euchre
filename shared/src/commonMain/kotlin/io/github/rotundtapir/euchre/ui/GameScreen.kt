@@ -286,7 +286,7 @@ fun GameScreen(
                     ) {
                         Column(modifier = Modifier.width(SIDE_PANEL_WIDTH)) {
                             // The turn card is only public once the deal has turned it over.
-                            TrumpLine(view, botNames, upcardRevealed = dealShown)
+                            TrumpLine(view, botNames, upcardRevealed = dealShown, compact = true)
                             Spacer(Modifier.height(8.dp))
                             OpponentsColumn(view, botNames, dealState, dealShown, anchors = seatAnchors)
                         }
