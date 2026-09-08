@@ -1,0 +1,5 @@
+A new icon, and a better table on small screens.
+
+• New app icon: the perfect Euchre hand — Q♠ K♠ A♠ J♣ J♠ — fanned over the felt.
+• The dealer now has a real button beside their name instead of a "(D)" tag.
+• Landscape phones: a shorter trump line, and the dealt hand no longer jumps size when the deal ends.
