@@ -191,7 +191,15 @@ class TutorialFrameCapture {
                 heldTrick().fetchSemanticsNodes().isNotEmpty() -> heldTrick()[0].performClick()
                 playableCards().fetchSemanticsNodes().size == 1 ->
                     playableCards()[0].performScrollTo().performClick()
-                else -> Thread.sleep(POLL_MILLIS) // a bot is thinking
+                else -> {
+                    // A bot is thinking, or the deal is mid-shuffle. Both clocks have to move: the
+                    // bots' beats are real-time `delay`s in the ViewModel, but the deal animation's
+                    // are `delay`s inside a LaunchedEffect, which the test rule runs on its own
+                    // scheduler — `waitForIdle` does not elapse those, only `advanceTimeBy` does,
+                    // and without it the shuffle's first delay never returns.
+                    Thread.sleep(POLL_MILLIS)
+                    rule.mainClock.advanceTimeBy(POLL_MILLIS)
+                }
             }
             rule.waitForIdle()
         }
