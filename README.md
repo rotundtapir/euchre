@@ -8,8 +8,8 @@ library — a sibling of the [500](https://github.com/rotundtapir/500) app.
 
 - **Play offline against bots** — a fast deterministic bot, plus an opt-in Monte-Carlo
   "Advanced AI" for stronger opponents.
-- **Learn with the interactive tutorial** — four scripted lessons: the basics (trump, bowers,
-  following suit), bidding, going alone, and defense.
+- **Learn with the interactive tutorial** — four narrated, scripted lessons: the basics (trump,
+  bowers, following suit), bidding, going alone, and defense.
 - **House rules** — stick the dealer, defend alone, Benny (joker as best bower), and farmer's
   hand, each toggleable in settings.
 - **Online multiplayer** — invite-code lobbies with cross-play between Android and the browser,

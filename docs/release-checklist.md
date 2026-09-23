@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later WITH LicenseRef-cardkit-ads-exception -->
 
-# v0.1.0 release checklist
+# Release checklist
 
 One-time setup and the release gate, in order. Mirrors 500's release process.
 
